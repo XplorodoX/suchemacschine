@@ -229,31 +229,47 @@
             color: var(--text-secondary);
         }
         .feedback-btn {
-            background: none;
+            background: var(--surface);
             border: 1px solid var(--border);
             color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 8px 16px;
+            border-radius: 20px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 5px;
-            transition: all 0.2s;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
         }
         .feedback-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: var(--accent-bg);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        .feedback-btn.active {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
+        .feedback-btn#btnUp:hover {
+            border-color: #81c995;
+            color: #81c995;
+            background: rgba(129, 201, 149, 0.1);
+        }
+        .feedback-btn#btnDown:hover {
+            border-color: #f28b82;
+            color: #f28b82;
+            background: rgba(242, 139, 130, 0.1);
+        }
+        .feedback-btn svg {
+            transition: transform 0.2s;
+        }
+        .feedback-btn:active svg {
+            transform: scale(1.3);
         }
         .feedback-thanks {
             color: #81c995;
-            font-weight: 500;
+            font-weight: 600;
             display: none;
+            animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
         /* =================== RESULT CARDS =================== */
@@ -492,6 +508,13 @@
             </div>
             Re-Ranking
         </label>
+        <label class="summary-toggle">
+            <div class="switch">
+                <input type="checkbox" id="landingExpansionToggle" checked>
+                <span class="slider"></span>
+            </div>
+            KI-Erweiterung
+        </label>
     </div>
 </div>
 
@@ -524,6 +547,13 @@
                 </div>
                 Re-Ranking
             </label>
+            <label class="summary-toggle">
+                <div class="switch">
+                    <input type="checkbox" id="resultsExpansionToggle" checked>
+                    <span class="slider"></span>
+                </div>
+                <span class="toggle-text">KI-Erweiterung</span>
+            </label>
         </div>
     </div>
 
@@ -548,14 +578,16 @@
             <div class="ai-summary-sources" id="summarySources"></div>
             
             <div class="ai-summary-feedback" id="feedbackArea">
-                <span>War diese Antwort hilfreich?</span>
-                <button class="feedback-btn" onclick="sendFeedback(1)" id="btnUp">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                <span>War diese Antwort korrekt?</span>
+                <button class="feedback-btn" onclick="sendFeedback(1)" id="btnUp" title="Hilfreich">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                    Ja
                 </button>
-                <button class="feedback-btn" onclick="sendFeedback(-1)" id="btnDown">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+                <button class="feedback-btn" onclick="sendFeedback(-1)" id="btnDown" title="Nicht hilfreich">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+                    Nein
                 </button>
-                <span class="feedback-thanks" id="feedbackThanks">Vielen Dank für Ihr Feedback!</span>
+                <span class="feedback-thanks" id="feedbackThanks">✨ Danke! Dein Feedback hilft uns besser zu werden.</span>
             </div>
         </div>
 
@@ -597,6 +629,8 @@ const landingToggle = document.getElementById('landingSummaryToggle');
 const resultsToggle = document.getElementById('resultsSummaryToggle');
 const landingRerank = document.getElementById('landingRerankToggle');
 const resultsRerank = document.getElementById('resultsRerankToggle');
+const landingExpansion = document.getElementById('landingExpansionToggle');
+const resultsExpansion = document.getElementById('resultsExpansionToggle');
 const landingModel = document.getElementById('landingModelSelect');
 const resultsModel = document.getElementById('resultsModelSelect');
 
@@ -604,6 +638,8 @@ landingToggle.addEventListener('change', () => { resultsToggle.checked = landing
 resultsToggle.addEventListener('change', () => { landingToggle.checked = resultsToggle.checked; });
 landingRerank.addEventListener('change', () => { resultsRerank.checked = landingRerank.checked; });
 resultsRerank.addEventListener('change', () => { landingRerank.checked = resultsRerank.checked; });
+landingExpansion.addEventListener('change', () => { resultsExpansion.checked = landingExpansion.checked; });
+resultsExpansion.addEventListener('change', () => { landingExpansion.checked = resultsExpansion.checked; });
 landingModel.addEventListener('change', () => { resultsModel.value = landingModel.value; });
 resultsModel.addEventListener('change', () => { landingModel.value = resultsModel.value; });
 
@@ -646,9 +682,15 @@ async function performSearch(page = 1) {
     currentQuery = q;
     currentPage = page;
 
-    // Switch to results view
-    document.getElementById('landingPage').style.display = 'none';
-    document.getElementById('resultsPage').style.display = 'block';
+    // Switch to results view only if coming from landing
+    const landing = document.getElementById('landingPage');
+    const results = document.getElementById('resultsPage');
+    if (landing.style.display !== 'none') {
+        landing.style.display = 'none';
+        results.style.display = 'block';
+        window.scrollTo(0, 0);
+    }
+
     resultsInput.value = q;
     document.title = q + ' - HS Aalen AI-Suche';
 
@@ -661,21 +703,38 @@ async function performSearch(page = 1) {
     const resultsInfo = document.getElementById('resultsInfo');
 
     loadingBar.style.display = 'block';
-    skeleton.style.display = 'block';
-    aiSummary.style.display = 'none';
-    resultsList.innerHTML = '';
-    pagination.style.display = 'none';
-    resultsInfo.textContent = '';
+    
+    if (page === 1) {
+        skeleton.style.display = 'block';
+        aiSummary.style.display = 'none';
+        resultsInfo.textContent = '';
+        resultsList.innerHTML = '';
+        pagination.innerHTML = '';
+    } else {
+        // For pagination, just fade the current results slightly
+        resultsList.style.opacity = '0.6';
+        resultsList.style.transition = 'opacity 0.2s';
+    }
 
     try {
         const includeSummary = document.getElementById('resultsSummaryToggle').checked;
         const includeRerank = document.getElementById('resultsRerankToggle').checked;
+        const includeExpansion = document.getElementById('resultsExpansionToggle').checked;
         const modelName = document.getElementById('resultsModelSelect').value;
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=${includeSummary}&include_rerank=${includeRerank}&model_name=${encodeURIComponent(modelName)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=${includeSummary}&include_rerank=${includeRerank}&include_expansion=${includeExpansion}&model_name=${encodeURIComponent(modelName)}`);
         const data = await res.json();
 
         loadingBar.style.display = 'none';
         skeleton.style.display = 'none';
+        resultsList.style.opacity = '1';
+        
+        // Clear list only after data is back to prevent jumping
+        resultsList.innerHTML = '';
+        
+        // If paginating, scroll to top of results info instead of page top
+        if (page > 1) {
+            resultsInfo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
 
         // Results info
         resultsInfo.textContent = `Ungefähr ${data.total_results} Ergebnisse`;
@@ -793,8 +852,7 @@ function renderPagination(current, totalPages, hasMore) {
     next.onclick = () => performSearch(current + 1);
     el.appendChild(next);
 
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Removed global scroll here to prevent jumpy pagination
 }
 
 // ---- Helpers ----

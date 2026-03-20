@@ -5,7 +5,13 @@ import os
 import numpy as np
 from datetime import datetime
 from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+# --- Global Cache ---
+# Simple in-memory cache for search results
+# format: {(query, model, rerank, expansion): (ranked_results, summary, timestamp)}
+search_cache = {}
+MAX_CACHE_SIZE = 100
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
@@ -212,41 +218,55 @@ async def api_search(
     per_page: int = Query(10, ge=1, le=50),
     include_summary: bool = Query(True),
     include_rerank: bool = Query(True),
+    include_expansion: bool = Query(True),
     model_name: str = Query(OLLAMA_MODEL),
 ):
-    """Search endpoint with dynamic controls."""
-    # 1. Expansion (always use default or specified model)
-    semantic_query = expand_query(q)
+    """Search endpoint with caching to improve performance."""
+    cache_key = (q, model_name, include_rerank, include_expansion)
 
-    # 2. Vector Search
-    raw_points = hybrid_search(q, semantic_query, total_limit=50)
+    # 1. Check Cache
+    if cache_key in search_cache:
+        ranked_results, summary = search_cache[cache_key]
+        print(f"DEBUG: Cache hit for '{q}'")
+    else:
+        print(f"DEBUG: Cache miss for '{q}'. Performing search...")
+        # A. Expansion
+        semantic_query = expand_query(q) if include_expansion else q
 
-    # 3. Formatting
-    results = []
-    for p in raw_points:
-        results.append({
-            "score": float(p.score),
-            "url": p.payload.get("url"),
-            "text": p.payload.get("text"),
-        })
+        # B. Vector Search
+        raw_points = hybrid_search(q, semantic_query, total_limit=50)
 
-    # 4. Boost and Re-rank
-    ranked_results = boost_and_rank(q, results, model_name, include_rerank)
+        # C. Formatting
+        results = []
+        for p in raw_points:
+            results.append({
+                "score": float(p.score),
+                "url": p.payload.get("url"),
+                "text": p.payload.get("text"),
+            })
 
-    # 5. Pagination
+        # D. Boost and Re-rank
+        ranked_results = boost_and_rank(q, results, model_name, include_rerank)
+
+        # E. Summary (Only if on page 1 of first search)
+        summary = ""
+        if ranked_results and include_summary:
+            summary = generate_summary(q, ranked_results, model_name)
+
+        # Save to Cache (Simple size management)
+        if len(search_cache) >= MAX_CACHE_SIZE:
+            search_cache.pop(next(iter(search_cache)))
+        search_cache[cache_key] = (ranked_results, summary)
+
+    # 2. Pagination (Applied to cached results)
     start = (page - 1) * per_page
     end = start + per_page
     page_results = ranked_results[start:end]
 
-    # 6. Summary
-    summary = ""
-    if page == 1 and page_results and include_summary:
-        summary = generate_summary(q, ranked_results, model_name)
-
     return {
         "original_query": q,
-        "expanded_query": semantic_query,
-        "summary": summary,
+        "expanded_query": q,  # Cached query
+        "summary": summary if (page == 1 and include_summary) else "",
         "results": page_results,
         "total_results": len(ranked_results),
         "page": page,

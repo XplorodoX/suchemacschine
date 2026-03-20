@@ -26,3 +26,39 @@ Um die Fakten-Genauigkeit der KI-Zusammenfassungen langfristig zu verbessern, wu
 - **Analyse**: Diese Daten ermöglichen es, systematische Fehler der KI zu identifizieren und die Prompts oder das Retrieval gezielt zu optimieren.
 
 Damit ist der Grundstein für eine selbstlernende Suchmaschine gelegt, die mit jeder Benutzer-Interaktion besser wird.
+
+## UX-Optimierungen & KI-Erweiterungssteuerung
+
+Der Such-Workflow wurde weiter verfeinert:
+- **Flüssige Paginierung**: Beim Wechseln zwischen den Ergebnisseiten (z.B. Seite 2) wird nur noch die Ergebnisliste aktualisiert. Das KI-Summary und das Seiten-Skelett bleiben stehen, was für ein deutlich ruhigeres und schnelleres Nutzererlebnis sorgt.
+- **KI-Erweiterungs-Switch**: Nutzer können nun die "semantische Abfrageerweiterung" ein- oder ausschalten. 
+  - **An (Standard)**: Das LLM generiert verwandte Suchbegriffe, um mehr Ergebnisse zu finden.
+  - **Aus**: Es wird exakt nach dem gesucht, was eingegeben wurde (nützlich für spezifische Begriffe oder Code-Suchen).
+
+Diese Kombination aus Performance und präziser Kontrolle macht die Suche extrem flexibel.
+
+## Premium Feedback UI
+
+Das Feedback-System wurde optisch aufgewertet:
+- **Interaktive Buttons**: Große, abgerundete "Pill"-Buttons mit klaren "Ja/Nein"-Labels.
+- **Micro-Animations**: Scale-Effekte beim Klicken und flüssige Hover-Animationen mit Ampel-Farben (Grün für korrekt, Rot für inkorrekt).
+- **Nutzerführung**: Klare Tooltips und eine Bestätigungs-Animation nach der Stimmabgabe sorgen für ein wertiges Gefühl.
+
+Damit ist das Einholen von Nutzer-Feedback nicht nur funktional, sondern macht auch Spaß – was die Datenqualität für spätere Optimierungen (RLHF/Prompt-Tuning) deutlich erhöht.
+
+## Zero-Jump Pagination (Flüssiges Blättern)
+
+Die Paginierung wurde technisch so umgesetzt, dass kein Layout-Sprung mehr entsteht:
+- **State-Retention**: Die alten Ergebnisse bleiben als Orientierung sichtbar, während die neuen im Hintergrund geladen werden.
+- **Atomic Update**: Der Austausch der Ergebnisliste erfolgt atomar in dem Moment, in dem die Daten vom Server eintreffen.
+- **Visual Stability**: Durch den Verzicht auf das vollständige Leeren des Containers bleibt die Scroll-Position und das visuelle Gefüge stabil.
+
+Damit fühlt sich die Suche jetzt so reaktionsschnell wie eine moderne Single-Page-App an.
+
+## Finaler Polish: Scroll-Verhalten
+
+Die Navigation zwischen den Seiten wurde für maximale Stabilität optimiert:
+- **Kontext-sensitiver Scroll**: Nur bei einer komplett neuen Suche springt die Seite nach ganz oben. Beim Blättern (Seite 2+) scrollt die Ansicht sanft zum Anfang der Ergebnisliste, sodass die Suchleiste und die KI-Zusammenfassung im Blick bleiben, aber der Fokus sofort auf den neuen Treffern liegt.
+- **Layout-Stabilität**: Durch das Vermeiden von unnötigen View-Switches und das atomare Update der Liste gibt es kein "Flackern" oder "Springen" mehr.
+
+Damit ist die Benutzeroberfläche nun auf dem Niveau einer modernen Web-App.
