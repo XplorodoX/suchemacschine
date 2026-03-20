@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HS Aalen | AI Vector Search</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #004a99;
+            --accent: #00c6ff;
+            --bg: #0f172a;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top right, #1e293b, var(--bg));
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #60a5fa, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .search-box {
+            position: relative;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .search-box:focus-within {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+        }
+
+        input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            padding: 15px 25px;
+            font-size: 1.2rem;
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--primary), #0072ff);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.3s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            margin-top: 30px;
+            color: #94a3b8;
+        }
+
+        .pulse {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            margin-left: 5px;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+        }
+
+        #results {
+            margin-top: 50px;
+        }
+
+        .result-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 25px;
+            border-radius: 18px;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+
+        .result-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .result-url {
+            color: var(--accent);
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 10px;
+            word-break: break-all;
+        }
+
+        .result-text {
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .expanded-info {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 15px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Vector Search</h1>
+            <p>Intelligente Suche für die Hochschule Aalen (DeepSeek R1 + Qdrant)</p>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="query" placeholder="Suchen Sie nach Studiengängen, Prüfungen..." onkeypress="handleKey(event)">
+            <button onclick="performSearch()">Suchen</button>
+        </div>
+
+        <div id="loading">
+            Die KI denkt nach... <span class="pulse"></span>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function performSearch() {
+            const query = document.getElementById('query').value;
+            if (!query) return;
+
+            const resultsDiv = document.getElementById('results');
+            const loading = document.getElementById('loading');
+            
+            resultsDiv.innerHTML = '';
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align:center">Keine Ergebnisse gefunden.</p>';
+                    return;
+                }
+
+                data.results.forEach(res => {
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+                    card.innerHTML = `
+                        <a href="${res.url}" target="_blank" class="result-url">${res.url}</a>
+                        <div class="result-text">${res.text}</div>
+                        <div class="expanded-info">Score: ${res.score.toFixed(4)}</div>
+                    `;
+                    resultsDiv.appendChild(card);
+                });
+
+            } catch (error) {
+                loading.style.display = 'none';
+                resultsDiv.innerHTML = '<p style="color:red; text-align:center">Fehler bei der Suche.</p>';
+            }
+        }
+
+        function handleKey(e) {
+            if (e.key === 'Enter') performSearch();
+        }
+    </script>
+</body>
+</html>

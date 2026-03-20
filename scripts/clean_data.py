@@ -16,27 +16,27 @@ PATTERNS_TO_REMOVE = [
     r"Häufig gesucht: Künstliche Intelligenz & Informatik Bachelor Artificial Intelligence & Data Science",
 ]
 
+
 def clean_text(text):
     for pattern in PATTERNS_TO_REMOVE:
         text = re.sub(pattern, " ", text, flags=re.IGNORECASE | re.DOTALL)
-    
+
     # Remove multiple spaces
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
+
 def main():
     print(f"Cleaning {INPUT_FILE}...")
     cleaned_count = 0
-    
-    with open(INPUT_FILE, "r", encoding="utf-8") as f_in, \
-         open(OUTPUT_FILE, "w", encoding="utf-8") as f_out:
-        
+
+    with open(INPUT_FILE, "r", encoding="utf-8") as f_in, open(OUTPUT_FILE, "w", encoding="utf-8") as f_out:
         for line in f_in:
             try:
                 record = json.loads(line)
                 original_text = record.get("content", "")
                 cleaned_text = clean_text(original_text)
-                
+
                 record["content"] = cleaned_text
                 f_out.write(json.dumps(record, ensure_ascii=False) + "\n")
                 cleaned_count += 1
@@ -44,9 +44,10 @@ def main():
                 print(f"Error processing line: {e}")
 
     print(f"Cleaned {cleaned_count} records. Saved to {OUTPUT_FILE}")
-    
+
     # Overwrite the original with the cleaned version if needed, or just tell the user
     # For safety, I'll keep them separate for now but suggest replacing if it looks good.
+
 
 if __name__ == "__main__":
     main()
