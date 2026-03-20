@@ -229,7 +229,8 @@ async def api_search(
         "page": page,
         "per_page": per_page,
         "has_more": end < len(ranked_results),
-        "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])]
+        "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])],
+        "debug_summary_toggle": include_summary
     }
 
 
