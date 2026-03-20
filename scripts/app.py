@@ -4,14 +4,15 @@ import json
 import os
 import numpy as np
 import unicodedata
+from typing import Optional
 from datetime import datetime
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 # --- Global Cache ---
 # Simple in-memory cache for search results
-# format: {(query, model, rerank, expansion, summary): (ranked_results, summary, expanded_query)}
+# format: {(query, model, rerank, expansion): (ranked_results, summary, expanded_query)}
 search_cache = {}
 MAX_CACHE_SIZE = 100
 from pydantic import BaseModel
@@ -25,6 +26,9 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
+OPENAI_URL = os.getenv("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_FALLBACK_MODELS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1"]
 RELEVANCE_MIN_SCORE = 0.34
 
 GERMAN_STOPWORDS = {
@@ -47,7 +51,37 @@ if not os.path.exists(STATIC_DIR):
     os.makedirs(STATIC_DIR)
 
 
-def expand_query(query: str) -> str:
+def call_llm(prompt: str, model_name: str, provider: str = "ollama", openai_api_key: str = "", timeout: int = 40) -> str:
+    """Unified LLM call for Ollama and OpenAI."""
+    if provider == "openai":
+        api_key = (openai_api_key or os.getenv("OPENAI_API_KEY", "")).strip()
+        if not api_key:
+            return ""
+
+        payload = {
+            "model": model_name or OPENAI_MODEL,
+            "messages": [
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.2,
+        }
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+        response = requests.post(OPENAI_URL, headers=headers, json=payload, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+        return (data.get("choices", [{}])[0].get("message", {}).get("content", "") or "").strip()
+
+    response = requests.post(
+        OLLAMA_URL,
+        json={"model": model_name or OLLAMA_MODEL, "prompt": prompt, "stream": False},
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return (response.json().get("response", "") or "").strip()
+
+
+def expand_query(query: str, model_name: str, provider: str = "ollama", openai_api_key: str = "") -> str:
     """Focused query expansion: produces a short, precise search sentence."""
     prompt = (
         "Du bist ein Suchassistent für die Webseite der Hochschule Aalen. "
@@ -58,13 +92,13 @@ def expand_query(query: str) -> str:
         f"Suchanfrage: {query}"
     )
     try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+        expanded = call_llm(
+            prompt,
+            model_name=model_name,
+            provider=provider,
+            openai_api_key=openai_api_key,
             timeout=30,
         )
-        response.raise_for_status()
-        expanded = response.json().get("response", "").strip()
         expanded = re.sub(r"<think>.*?</think>", "", expanded, flags=re.DOTALL).strip()
         # Remove quotes if the model wraps it
         expanded = expanded.strip('"').strip("'").strip("„").strip("“")
@@ -84,6 +118,26 @@ def tokenize(text: str) -> list[str]:
     normalized = normalize_text(text)
     tokens = re.findall(r"[a-zA-Z0-9äöüÄÖÜß]{2,}", normalized)
     return [t for t in tokens if t not in GERMAN_STOPWORDS]
+
+
+def extract_quoted_phrases(query: str) -> list[str]:
+    phrases = re.findall(r'"([^"]+)"', query)
+    return [normalize_text(p) for p in phrases if p.strip()]
+
+
+def strict_match_passes(query: str, text: str, url: str) -> bool:
+    haystack = f"{normalize_text(text)} {normalize_text(url)}"
+    phrases = extract_quoted_phrases(query)
+
+    # If user provides quoted phrases, enforce exact phrase containment.
+    if phrases and not all(p in haystack for p in phrases):
+        return False
+
+    # Enforce at least one core token match for precision.
+    core_tokens = [t for t in tokenize(query) if len(t) >= 4]
+    if not core_tokens:
+        return True
+    return any(tok in haystack for tok in core_tokens)
 
 
 def lexical_relevance(query: str, text: str, url: str) -> float:
@@ -148,7 +202,15 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
     return merged[:total_limit]
 
 
-def boost_and_rank(query: str, results: list, model_name: str, include_rerank: bool) -> list:
+def boost_and_rank(
+    query: str,
+    results: list,
+    model_name: str,
+    include_rerank: bool,
+    provider: str = "ollama",
+    openai_api_key: str = "",
+    strict_match: bool = True,
+) -> list:
     """Combine vector score with lexical relevance and optional LLM re-ranking."""
     if not results:
         return results
@@ -168,6 +230,13 @@ def boost_and_rank(query: str, results: list, model_name: str, include_rerank: b
         res["score"] = (0.72 * vector_norm) + (0.28 * lexical)
         res["vector_score"] = float(raw_vector)
         res["lexical_score"] = float(lexical)
+
+    if strict_match:
+        results = [
+            r
+            for r in results
+            if strict_match_passes(query, r.get("text", ""), r.get("url", ""))
+        ]
 
     # Filter weak matches so summary generation does not hallucinate from irrelevant sources.
     results = [r for r in results if r["score"] >= RELEVANCE_MIN_SCORE]
@@ -193,13 +262,13 @@ def boost_and_rank(query: str, results: list, model_name: str, include_rerank: b
         f"Ergebnisse:\n{snippets}"
     )
     try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": model_name, "prompt": prompt, "stream": False},
+        raw = call_llm(
+            prompt,
+            model_name=model_name,
+            provider=provider,
+            openai_api_key=openai_api_key,
             timeout=40,
         )
-        response.raise_for_status()
-        raw = response.json().get("response", "").strip()
         raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
 
         # Parse indices
@@ -229,7 +298,7 @@ def has_strong_evidence(results: list) -> bool:
     return top1 >= 0.5 and mean_top3 >= 0.42
 
 
-def generate_summary(query: str, results: list, model_name: str) -> str:
+def generate_summary(query: str, results: list, model_name: str, provider: str = "ollama", openai_api_key: str = "") -> str:
     """Generate an AI summary using the specified model."""
     if not has_strong_evidence(results):
         return ""
@@ -251,13 +320,13 @@ def generate_summary(query: str, results: list, model_name: str) -> str:
         "4. Wenn die Quellen nicht ausreichen, antworte nur: KEINE_EVIDENZ"
     )
     try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": model_name, "prompt": prompt, "stream": False},
+        summary = call_llm(
+            prompt,
+            model_name=model_name,
+            provider=provider,
+            openai_api_key=openai_api_key,
             timeout=60,
         )
-        response.raise_for_status()
-        summary = response.json().get("response", "").strip()
         summary = re.sub(r"<think>.*?</think>", "", summary, flags=re.DOTALL).strip()
         if "KEINE_EVIDENZ" in summary.upper():
             return ""
@@ -267,18 +336,44 @@ def generate_summary(query: str, results: list, model_name: str) -> str:
 
 
 @app.get("/api/models")
-async def list_models():
-    """Proxy request to Ollama to list available models."""
+async def list_models(
+    provider: str = Query("ollama", pattern="^(ollama|openai)$"),
+    openai_api_key: str = Query(""),
+    x_openai_key: Optional[str] = Header(default=None, alias="X-OpenAI-Key"),
+):
+    """List available models for selected provider."""
+    if provider == "openai":
+        api_key = (openai_api_key or x_openai_key or os.getenv("OPENAI_API_KEY", "")).strip()
+        if not api_key:
+            return {"models": OPENAI_FALLBACK_MODELS, "provider": "openai", "using_fallback": True}
+        try:
+            response = requests.get(
+                "https://api.openai.com/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=12,
+            )
+            response.raise_for_status()
+            model_ids = [m.get("id", "") for m in response.json().get("data", []) if m.get("id")]
+            preferred = [m for m in model_ids if m.startswith("gpt-")]
+            preferred_sorted = sorted(set(preferred))[:30]
+            return {
+                "models": preferred_sorted if preferred_sorted else OPENAI_FALLBACK_MODELS,
+                "provider": "openai",
+                "using_fallback": not bool(preferred_sorted),
+            }
+        except Exception:
+            return {"models": OPENAI_FALLBACK_MODELS, "provider": "openai", "using_fallback": True}
+
     try:
         # Use the base URL for Ollama tags
         base_ollama = OLLAMA_URL.replace("/api/generate", "/api/tags")
         response = requests.get(base_ollama, timeout=10)
         response.raise_for_status()
         models_data = response.json().get("models", [])
-        return {"models": [m["name"] for m in models_data]}
+        return {"models": [m["name"] for m in models_data], "provider": "ollama", "using_fallback": False}
     except Exception as e:
         print(f"Error fetching models: {e}")
-        return {"models": [OLLAMA_MODEL]}
+        return {"models": [OLLAMA_MODEL], "provider": "ollama", "using_fallback": True}
 
 
 @app.get("/api/search")
@@ -289,10 +384,24 @@ async def api_search(
     include_summary: bool = Query(True),
     include_rerank: bool = Query(True),
     include_expansion: bool = Query(True),
+    strict_match: bool = Query(True),
     model_name: str = Query(OLLAMA_MODEL),
+    provider: str = Query("ollama", pattern="^(ollama|openai)$"),
+    openai_api_key: str = Query(""),
+    x_openai_key: Optional[str] = Header(default=None, alias="X-OpenAI-Key"),
 ):
     """Search endpoint with caching to improve performance."""
-    cache_key = (q, model_name, include_rerank, include_expansion, include_summary)
+    active_openai_key = (openai_api_key or x_openai_key or "").strip()
+    model_for_provider = model_name or (OPENAI_MODEL if provider == "openai" else OLLAMA_MODEL)
+    cache_key = (
+        q,
+        provider,
+        model_for_provider,
+        include_rerank,
+        include_expansion,
+        strict_match,
+        bool(active_openai_key),
+    )
 
     # 1. Check Cache
     if cache_key in search_cache:
@@ -301,7 +410,11 @@ async def api_search(
     else:
         print(f"DEBUG: Cache miss for '{q}'. Performing search...")
         # A. Expansion
-        semantic_query = expand_query(q) if include_expansion else q
+        semantic_query = (
+            expand_query(q, model_for_provider, provider=provider, openai_api_key=active_openai_key)
+            if include_expansion
+            else q
+        )
 
         # B. Vector Search
         raw_points = hybrid_search(q, semantic_query, total_limit=50)
@@ -316,16 +429,41 @@ async def api_search(
             })
 
         # D. Boost and Re-rank
-        ranked_results = boost_and_rank(q, results, model_name, include_rerank)
+        ranked_results = boost_and_rank(
+            q,
+            results,
+            model_for_provider,
+            include_rerank,
+            provider=provider,
+            openai_api_key=active_openai_key,
+            strict_match=strict_match,
+        )
 
-        # E. Summary (Only if on page 1 of first search)
+        # E. Summary (only generated on page 1)
         summary = ""
-        if ranked_results and include_summary:
-            summary = generate_summary(q, ranked_results, model_name)
+        if ranked_results and include_summary and page == 1:
+            summary = generate_summary(
+                q,
+                ranked_results,
+                model_for_provider,
+                provider=provider,
+                openai_api_key=active_openai_key,
+            )
 
         # Save to Cache (Simple size management)
         if len(search_cache) >= MAX_CACHE_SIZE:
             search_cache.pop(next(iter(search_cache)))
+        search_cache[cache_key] = (ranked_results, summary, semantic_query)
+
+    # If search was first run without summary, lazily generate it once on page 1.
+    if page == 1 and include_summary and ranked_results and not summary:
+        summary = generate_summary(
+            q,
+            ranked_results,
+            model_for_provider,
+            provider=provider,
+            openai_api_key=active_openai_key,
+        )
         search_cache[cache_key] = (ranked_results, summary, semantic_query)
 
     # 2. Pagination (Applied to cached results)
@@ -343,7 +481,8 @@ async def api_search(
         "per_page": per_page,
         "has_more": end < len(ranked_results),
         "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])],
-        "model": model_name
+        "model": model_for_provider,
+        "provider": provider,
     }
 
 

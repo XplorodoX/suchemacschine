@@ -63,6 +63,8 @@
             gap: 12px;
             justify-content: center;
             margin-top: 24px;
+            align-items: flex-start;
+            flex-wrap: wrap;
         }
         .landing .search-buttons button {
             background: var(--surface);
@@ -147,6 +149,10 @@
         .results-header .search-bar {
             flex: 1;
             max-width: 692px;
+        }
+
+        .results-header .settings-panel {
+            margin-left: auto;
         }
 
         .results-body {
@@ -418,6 +424,62 @@
         }
         .model-selector:hover { border-color: var(--accent); }
 
+        .settings-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 12px;
+            min-width: 280px;
+        }
+        .settings-panel summary {
+            cursor: pointer;
+            list-style: none;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .settings-panel summary::-webkit-details-marker {
+            display: none;
+        }
+        .settings-panel[open] summary {
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .field-label {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            display: block;
+        }
+        .settings-input {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 9px 10px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .settings-input:focus {
+            border-color: var(--accent);
+        }
+        .switch-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            border-top: 1px solid var(--border);
+            padding-top: 8px;
+        }
+
         /* =================== TOGGLE SWITCH =================== */
         .summary-toggle {
             display: flex;
@@ -470,6 +532,122 @@
             border-top: 1px solid var(--border);
             margin-top: 40px;
         }
+
+        @media (max-width: 1024px) {
+            .results-header {
+                gap: 12px;
+                padding: 10px 12px;
+            }
+            .results-body {
+                margin-left: 0;
+                max-width: 100%;
+                padding: 16px 12px 48px;
+            }
+            .results-header .search-bar {
+                max-width: none;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .landing {
+                justify-content: flex-start;
+                padding-top: 64px;
+            }
+            .landing-logo {
+                font-size: 2.7rem;
+                margin-bottom: 22px;
+            }
+            .landing-logo .ai {
+                font-size: 1.45rem;
+            }
+            .landing .search-buttons {
+                width: 100%;
+                gap: 10px;
+            }
+            .landing .search-buttons button {
+                width: 100%;
+                border-radius: 10px;
+                padding: 12px 16px;
+                font-size: 0.95rem;
+            }
+            .settings-panel {
+                width: 100%;
+                min-width: 0;
+                border-radius: 10px;
+            }
+
+            .results-header {
+                flex-wrap: wrap;
+                align-items: center;
+                position: static;
+            }
+            .results-header .logo {
+                font-size: 1.2rem;
+            }
+            .results-header .search-bar {
+                order: 3;
+                width: 100%;
+                flex-basis: 100%;
+            }
+            .results-header .settings-panel {
+                order: 2;
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .ai-summary {
+                padding: 14px 14px;
+                margin-bottom: 18px;
+            }
+            .ai-summary-text {
+                font-size: 0.9rem;
+                line-height: 1.65;
+            }
+            .ai-summary-feedback {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .result-item-title {
+                font-size: 1.05rem;
+            }
+            .result-item-snippet {
+                font-size: 0.84rem;
+                -webkit-line-clamp: 4;
+            }
+
+            .pagination {
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 18px 0;
+            }
+            .pagination button, .pagination span {
+                padding: 7px 10px;
+                font-size: 0.82rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .search-bar {
+                border-radius: 16px;
+                padding: 5px 10px;
+            }
+            .search-bar input {
+                font-size: 0.95rem;
+            }
+            .summary-toggle {
+                padding: 6px 8px;
+                font-size: 0.8rem;
+            }
+            .result-item-favicon {
+                width: 22px;
+                height: 22px;
+                font-size: 0.65rem;
+            }
+            .footer {
+                padding: 14px 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -491,30 +669,56 @@
     </div>
     <div class="search-buttons">
         <button onclick="performSearch()">AI-Suche</button>
-        <select id="landingModelSelect" class="model-selector">
-            <option value="deepseek-r1:8b">DeepSeek 8B (Default)</option>
-        </select>
-        <label class="summary-toggle">
-            <div class="switch">
-                <input type="checkbox" id="landingSummaryToggle" checked>
-                <span class="slider"></span>
+        <details class="settings-panel" id="landingSettings">
+            <summary>Optionen</summary>
+            <div class="settings-grid">
+                <div>
+                    <label class="field-label" for="landingProviderSelect">KI-Provider</label>
+                    <select id="landingProviderSelect" class="model-selector" style="width:100%;">
+                        <option value="ollama">Ollama (lokal)</option>
+                        <option value="openai">OpenAI (API)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="landingModelSelect">Modell</label>
+                    <select id="landingModelSelect" class="model-selector" style="width:100%;"></select>
+                </div>
+                <div id="landingOpenAIWrap" style="display:none;">
+                    <label class="field-label" for="landingOpenAIKey">OpenAI API Key</label>
+                    <input id="landingOpenAIKey" class="settings-input" type="password" placeholder="sk-...">
+                </div>
+                <div class="switch-row">
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="landingStrictToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        Strikte Worttreffer
+                    </label>
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="landingSummaryToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        Zusammenfassung
+                    </label>
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="landingRerankToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        Re-Ranking
+                    </label>
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="landingExpansionToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        KI-Erweiterung
+                    </label>
+                </div>
             </div>
-            Zusammenfassung
-        </label>
-        <label class="summary-toggle">
-            <div class="switch">
-                <input type="checkbox" id="landingRerankToggle" checked>
-                <span class="slider"></span>
-            </div>
-            Re-Ranking
-        </label>
-        <label class="summary-toggle">
-            <div class="switch">
-                <input type="checkbox" id="landingExpansionToggle" checked>
-                <span class="slider"></span>
-            </div>
-            KI-Erweiterung
-        </label>
+        </details>
     </div>
 </div>
 
@@ -531,30 +735,56 @@
             <input type="text" id="resultsInput" placeholder="Suche..." autocomplete="off">
             <button class="clear-btn" id="resultsClear">&times;</button>
         </div>
-        <div style="display:flex; gap:12px; align-items:center;">
-            <select id="resultsModelSelect" class="model-selector"></select>
-            <label class="summary-toggle">
-                <div class="switch">
-                    <input type="checkbox" id="resultsSummaryToggle" checked>
-                    <span class="slider"></span>
+        <details class="settings-panel" id="resultsSettings">
+            <summary>Optionen</summary>
+            <div class="settings-grid">
+                <div>
+                    <label class="field-label" for="resultsProviderSelect">KI-Provider</label>
+                    <select id="resultsProviderSelect" class="model-selector" style="width:100%;">
+                        <option value="ollama">Ollama (lokal)</option>
+                        <option value="openai">OpenAI (API)</option>
+                    </select>
                 </div>
-                Zusammenfassung
-            </label>
-            <label class="summary-toggle">
-                <div class="switch">
-                    <input type="checkbox" id="resultsRerankToggle" checked>
-                    <span class="slider"></span>
+                <div>
+                    <label class="field-label" for="resultsModelSelect">Modell</label>
+                    <select id="resultsModelSelect" class="model-selector" style="width:100%;"></select>
                 </div>
-                Re-Ranking
-            </label>
-            <label class="summary-toggle">
-                <div class="switch">
-                    <input type="checkbox" id="resultsExpansionToggle" checked>
-                    <span class="slider"></span>
+                <div id="resultsOpenAIWrap" style="display:none;">
+                    <label class="field-label" for="resultsOpenAIKey">OpenAI API Key</label>
+                    <input id="resultsOpenAIKey" class="settings-input" type="password" placeholder="sk-...">
                 </div>
-                <span class="toggle-text">KI-Erweiterung</span>
-            </label>
-        </div>
+                <div class="switch-row">
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="resultsStrictToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        Strikte Worttreffer
+                    </label>
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="resultsSummaryToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        Zusammenfassung
+                    </label>
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="resultsRerankToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        Re-Ranking
+                    </label>
+                    <label class="summary-toggle">
+                        <div class="switch">
+                            <input type="checkbox" id="resultsExpansionToggle" checked>
+                            <span class="slider"></span>
+                        </div>
+                        KI-Erweiterung
+                    </label>
+                </div>
+            </div>
+        </details>
     </div>
 
     <div class="results-body">
@@ -627,25 +857,64 @@ resultsClear.addEventListener('click', () => { resultsInput.value = ''; resultsC
 // Controls Sync
 const landingToggle = document.getElementById('landingSummaryToggle');
 const resultsToggle = document.getElementById('resultsSummaryToggle');
+const landingStrict = document.getElementById('landingStrictToggle');
+const resultsStrict = document.getElementById('resultsStrictToggle');
 const landingRerank = document.getElementById('landingRerankToggle');
 const resultsRerank = document.getElementById('resultsRerankToggle');
 const landingExpansion = document.getElementById('landingExpansionToggle');
 const resultsExpansion = document.getElementById('resultsExpansionToggle');
+const landingProvider = document.getElementById('landingProviderSelect');
+const resultsProvider = document.getElementById('resultsProviderSelect');
 const landingModel = document.getElementById('landingModelSelect');
 const resultsModel = document.getElementById('resultsModelSelect');
+const landingOpenAIKey = document.getElementById('landingOpenAIKey');
+const resultsOpenAIKey = document.getElementById('resultsOpenAIKey');
+const landingOpenAIWrap = document.getElementById('landingOpenAIWrap');
+const resultsOpenAIWrap = document.getElementById('resultsOpenAIWrap');
 
 landingToggle.addEventListener('change', () => { resultsToggle.checked = landingToggle.checked; });
 resultsToggle.addEventListener('change', () => { landingToggle.checked = resultsToggle.checked; });
+landingStrict.addEventListener('change', () => { resultsStrict.checked = landingStrict.checked; });
+resultsStrict.addEventListener('change', () => { landingStrict.checked = resultsStrict.checked; });
 landingRerank.addEventListener('change', () => { resultsRerank.checked = landingRerank.checked; });
 resultsRerank.addEventListener('change', () => { landingRerank.checked = resultsRerank.checked; });
 landingExpansion.addEventListener('change', () => { resultsExpansion.checked = landingExpansion.checked; });
 resultsExpansion.addEventListener('change', () => { landingExpansion.checked = resultsExpansion.checked; });
+landingProvider.addEventListener('change', async () => {
+    resultsProvider.value = landingProvider.value;
+    syncProviderUI();
+    await initModels();
+});
+resultsProvider.addEventListener('change', async () => {
+    landingProvider.value = resultsProvider.value;
+    syncProviderUI();
+    await initModels();
+});
 landingModel.addEventListener('change', () => { resultsModel.value = landingModel.value; });
 resultsModel.addEventListener('change', () => { landingModel.value = resultsModel.value; });
+landingOpenAIKey.addEventListener('change', async () => {
+    resultsOpenAIKey.value = landingOpenAIKey.value;
+    await initModels();
+});
+resultsOpenAIKey.addEventListener('change', async () => {
+    landingOpenAIKey.value = resultsOpenAIKey.value;
+    await initModels();
+});
+
+function syncProviderUI() {
+    const isOpenAI = resultsProvider.value === 'openai';
+    landingOpenAIWrap.style.display = isOpenAI ? 'block' : 'none';
+    resultsOpenAIWrap.style.display = isOpenAI ? 'block' : 'none';
+}
 
 async function initModels() {
     try {
-        const res = await fetch('/api/models');
+        const provider = resultsProvider.value || 'ollama';
+        const openaiKey = (resultsOpenAIKey.value || '').trim();
+        const selectedModel = resultsModel.value || landingModel.value;
+        const res = await fetch(`/api/models?provider=${encodeURIComponent(provider)}`, {
+            headers: { 'X-OpenAI-Key': openaiKey }
+        });
         const data = await res.json();
         const models = data.models || [];
         
@@ -655,12 +924,21 @@ async function initModels() {
                 const opt = document.createElement('option');
                 opt.value = m;
                 opt.textContent = m;
-                if (m.includes('deepseek')) opt.textContent += ' (Rec.)';
+                if (provider === 'ollama' && m.includes('deepseek')) opt.textContent += ' (Rec.)';
+                if (provider === 'openai' && m.includes('gpt-4o-mini')) opt.textContent += ' (Rec.)';
                 select.appendChild(opt);
             });
         });
+
+        const fallbackModel = models[0] || '';
+        const finalModel = models.includes(selectedModel) ? selectedModel : fallbackModel;
+        if (finalModel) {
+            landingModel.value = finalModel;
+            resultsModel.value = finalModel;
+        }
     } catch (e) { console.error('Error loading models:', e); }
 }
+syncProviderUI();
 initModels();
 
 function goHome() {
@@ -717,11 +995,16 @@ async function performSearch(page = 1) {
     }
 
     try {
-        const includeSummary = document.getElementById('resultsSummaryToggle').checked;
+        const includeSummary = document.getElementById('resultsSummaryToggle').checked && page === 1;
+        const strictMatch = document.getElementById('resultsStrictToggle').checked;
         const includeRerank = document.getElementById('resultsRerankToggle').checked;
         const includeExpansion = document.getElementById('resultsExpansionToggle').checked;
+        const provider = document.getElementById('resultsProviderSelect').value;
+        const openaiKey = document.getElementById('resultsOpenAIKey').value || '';
         const modelName = document.getElementById('resultsModelSelect').value;
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=${includeSummary}&include_rerank=${includeRerank}&include_expansion=${includeExpansion}&model_name=${encodeURIComponent(modelName)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=${includeSummary}&include_rerank=${includeRerank}&include_expansion=${includeExpansion}&strict_match=${strictMatch}&model_name=${encodeURIComponent(modelName)}&provider=${encodeURIComponent(provider)}`, {
+            headers: { 'X-OpenAI-Key': openaiKey }
+        });
         const data = await res.json();
 
         loadingBar.style.display = 'none';
