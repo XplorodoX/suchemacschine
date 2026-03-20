@@ -3,210 +3,635 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HS Aalen | AI Vector Search</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>HS Aalen | AI-Suche</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         :root {
-            --primary: #004a99;
-            --accent: #00c6ff;
-            --bg: #0f172a;
-            --glass: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --bg: #202124;
+            --surface: #303134;
+            --surface-hover: #3c4043;
+            --border: #5f6368;
+            --text: #e8eaed;
+            --text-secondary: #9aa0a6;
+            --link: #8ab4f8;
+            --link-visited: #c58af9;
+            --green: #bdc1c6;
+            --accent: #8ab4f8;
+            --accent-bg: rgba(138, 180, 248, 0.08);
+            --summary-bg: #2d2f31;
+            --summary-border: #4285f4;
         }
 
         body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Outfit', sans-serif;
-            background: radial-gradient(circle at top right, #1e293b, var(--bg));
-            color: #f8fafc;
+            font-family: 'Inter', arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
         }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
+        /* =================== LANDING PAGE =================== */
+        .landing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 60px;
+        .landing-logo {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 40px;
+            letter-spacing: -2px;
+        }
+        .landing-logo .hs { color: #8ab4f8; }
+        .landing-logo .dot { color: #f28b82; }
+        .landing-logo .aalen { color: #81c995; }
+        .landing-logo .ai { color: #fdd663; font-size: 2rem; vertical-align: super; }
+
+        .landing .search-bar {
+            width: 100%;
+            max-width: 584px;
         }
 
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            background: linear-gradient(to right, #60a5fa, #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .landing .search-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 24px;
+        }
+        .landing .search-buttons button {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--surface);
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s;
+        }
+        .landing .search-buttons button:hover {
+            border-color: var(--border);
         }
 
-        .search-box {
-            position: relative;
-            background: var(--glass);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 8px;
+        /* =================== SEARCH BAR =================== */
+        .search-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
             display: flex;
             align-items: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            transition: transform 0.3s ease;
+            padding: 6px 16px;
+            transition: box-shadow 0.2s, background 0.2s;
         }
-
-        .search-box:focus-within {
-            transform: translateY(-2px);
-            border-color: var(--accent);
+        .search-bar:focus-within {
+            background: var(--surface-hover);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
-
-        input {
+        .search-bar .icon {
+            color: var(--text-secondary);
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .search-bar input {
             flex: 1;
             background: transparent;
             border: none;
             outline: none;
-            color: white;
-            padding: 15px 25px;
-            font-size: 1.2rem;
+            color: var(--text);
+            font-size: 1rem;
+            padding: 8px 0;
+            font-family: 'Inter', sans-serif;
         }
-
-        button {
-            background: linear-gradient(135deg, var(--primary), #0072ff);
-            color: white;
+        .search-bar input::placeholder { color: var(--text-secondary); }
+        .search-bar .clear-btn {
+            background: none;
             border: none;
-            padding: 12px 30px;
-            border-radius: 15px;
+            color: var(--text-secondary);
             cursor: pointer;
-            font-weight: 600;
-            transition: opacity 0.3s;
-        }
-
-        button:hover {
-            opacity: 0.9;
-        }
-
-        #loading {
+            padding: 4px 8px;
+            font-size: 1.2rem;
             display: none;
-            text-align: center;
-            margin-top: 30px;
-            color: #94a3b8;
         }
 
-        .pulse {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background-color: var(--accent);
-            border-radius: 50%;
-            margin-left: 5px;
-            animation: pulse 1.5s infinite ease-in-out;
+        /* =================== RESULTS PAGE =================== */
+        .results-page { display: none; }
+
+        .results-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .results-header .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .results-header .logo .hs { color: #8ab4f8; }
+        .results-header .logo .dot { color: #f28b82; }
+        .results-header .logo .aalen { color: #81c995; }
+
+        .results-header .search-bar {
+            flex: 1;
+            max-width: 692px;
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(0); opacity: 0; }
-            50% { transform: scale(1.5); opacity: 1; }
+        .results-body {
+            max-width: 692px;
+            padding: 20px 16px 60px;
+            margin-left: 150px;
         }
 
-        #results {
-            margin-top: 50px;
+        @media (max-width: 900px) {
+            .results-body { margin-left: 16px; }
         }
 
-        .result-card {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            padding: 25px;
-            border-radius: 18px;
-            margin-bottom: 20px;
-            transition: background 0.3s;
-        }
-
-        .result-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        .result-url {
-            color: var(--accent);
-            font-size: 0.9rem;
-            text-decoration: none;
-            display: block;
-            margin-bottom: 10px;
-            word-break: break-all;
-        }
-
-        .result-text {
-            color: #cbd5e1;
-            line-height: 1.6;
-        }
-
-        .expanded-info {
+        .results-info {
+            color: var(--text-secondary);
             font-size: 0.8rem;
-            color: #64748b;
-            margin-top: 15px;
-            font-style: italic;
+            margin-bottom: 20px;
+        }
+
+        /* =================== AI SUMMARY =================== */
+        .ai-summary {
+            background: var(--summary-bg);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--summary-border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 28px;
+            line-height: 1.7;
+            position: relative;
+        }
+        .ai-summary-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .ai-summary-header svg {
+            width: 18px;
+            height: 18px;
+        }
+        .ai-summary-text {
+            font-size: 0.95rem;
+            color: var(--text);
+            line-height: 1.8;
+        }
+        .ai-summary-sources {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .ai-summary-sources a {
+            background: var(--surface);
+            color: var(--link);
+            text-decoration: none;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.75rem;
+            border: 1px solid var(--border);
+            transition: background 0.2s;
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+        }
+        .ai-summary-sources a:hover { background: var(--surface-hover); }
+
+        /* =================== RESULT CARDS =================== */
+        .result-item {
+            margin-bottom: 28px;
+        }
+        .result-item-site {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .result-item-favicon {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .result-item-url-group {
+            overflow: hidden;
+        }
+        .result-item-domain {
+            font-size: 0.8rem;
+            color: var(--text);
+        }
+        .result-item-breadcrumb {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .result-item-title {
+            font-size: 1.25rem;
+            font-weight: 400;
+            margin-bottom: 6px;
+        }
+        .result-item-title a {
+            color: var(--link);
+            text-decoration: none;
+        }
+        .result-item-title a:hover { text-decoration: underline; }
+        .result-item-title a:visited { color: var(--link-visited); }
+        .result-item-snippet {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.58;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* =================== PAGINATION =================== */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 30px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 10px;
+        }
+        .pagination button, .pagination span {
+            background: transparent;
+            color: var(--link);
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.15s;
+        }
+        .pagination button:hover { background: var(--accent-bg); }
+        .pagination button:disabled {
+            color: var(--text-secondary);
+            cursor: default;
+        }
+        .pagination button:disabled:hover { background: transparent; }
+        .pagination .page-current {
+            background: var(--accent-bg);
+            color: var(--accent);
+            font-weight: 600;
+            border: 1px solid var(--accent);
+        }
+
+        /* =================== LOADING =================== */
+        .loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            z-index: 999;
+            display: none;
+        }
+        .loading-bar::after {
+            content: '';
+            display: block;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, #4285f4, #8ab4f8, #4285f4);
+            animation: loadSlide 1.2s ease-in-out infinite;
+        }
+        @keyframes loadSlide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+
+        .loading-skeleton {
+            display: none;
+        }
+        .skeleton-block {
+            background: var(--surface);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            animation: shimmer 1.5s infinite;
+        }
+        .skeleton-summary { height: 120px; margin-bottom: 28px; border-radius: 12px; }
+        .skeleton-result { height: 90px; }
+        @keyframes shimmer {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        /* =================== FOOTER =================== */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--border);
+            margin-top: 40px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>AI Vector Search</h1>
-            <p>Intelligente Suche für die Hochschule Aalen (DeepSeek R1 + Qdrant)</p>
-        </header>
 
-        <div class="search-box">
-            <input type="text" id="query" placeholder="Suchen Sie nach Studiengängen, Prüfungen..." onkeypress="handleKey(event)">
-            <button onclick="performSearch()">Suchen</button>
+<div class="loading-bar" id="loadingBar"></div>
+
+<!-- =================== LANDING =================== -->
+<div class="landing" id="landingPage">
+    <div class="landing-logo">
+        <span class="hs">HS</span><span class="dot">.</span><span class="aalen">Aalen</span>
+        <span class="ai">AI</span>
+    </div>
+    <div class="search-bar" id="landingSearchBar">
+        <span class="icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input type="text" id="landingInput" placeholder="Suche an der Hochschule Aalen..." autocomplete="off" autofocus>
+        <button class="clear-btn" id="landingClear">&times;</button>
+    </div>
+    <div class="search-buttons">
+        <button onclick="performSearch()">AI-Suche</button>
+    </div>
+</div>
+
+<!-- =================== RESULTS =================== -->
+<div class="results-page" id="resultsPage">
+    <div class="results-header">
+        <div class="logo" onclick="goHome()">
+            <span class="hs">HS</span><span class="dot">.</span><span class="aalen">Aalen</span>
         </div>
-
-        <div id="loading">
-            Die KI denkt nach... <span class="pulse"></span>
+        <div class="search-bar">
+            <span class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="text" id="resultsInput" placeholder="Suche..." autocomplete="off">
+            <button class="clear-btn" id="resultsClear">&times;</button>
         </div>
-
-        <div id="results"></div>
     </div>
 
-    <script>
-        async function performSearch() {
-            const query = document.getElementById('query').value;
-            if (!query) return;
+    <div class="results-body">
+        <div class="results-info" id="resultsInfo"></div>
 
-            const resultsDiv = document.getElementById('results');
-            const loading = document.getElementById('loading');
-            
-            resultsDiv.innerHTML = '';
-            loading.style.display = 'block';
+        <!-- Skeleton Loader -->
+        <div class="loading-skeleton" id="skeleton">
+            <div class="skeleton-block skeleton-summary"></div>
+            <div class="skeleton-block skeleton-result"></div>
+            <div class="skeleton-block skeleton-result"></div>
+            <div class="skeleton-block skeleton-result"></div>
+        </div>
 
-            try {
-                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-                const data = await response.json();
-                
-                loading.style.display = 'none';
-                
-                if (data.results.length === 0) {
-                    resultsDiv.innerHTML = '<p style="text-align:center">Keine Ergebnisse gefunden.</p>';
-                    return;
-                }
+        <!-- AI Summary -->
+        <div class="ai-summary" id="aiSummary" style="display:none;">
+            <div class="ai-summary-header">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                KI-Zusammenfassung
+            </div>
+            <div class="ai-summary-text" id="summaryText"></div>
+            <div class="ai-summary-sources" id="summarySources"></div>
+        </div>
 
-                data.results.forEach(res => {
-                    const card = document.createElement('div');
-                    card.className = 'result-card';
-                    card.innerHTML = `
-                        <a href="${res.url}" target="_blank" class="result-url">${res.url}</a>
-                        <div class="result-text">${res.text}</div>
-                        <div class="expanded-info">Score: ${res.score.toFixed(4)}</div>
-                    `;
-                    resultsDiv.appendChild(card);
+        <!-- Search Results -->
+        <div id="resultsList"></div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination" style="display:none;"></div>
+    </div>
+
+    <div class="footer">
+        Powered by DeepSeek R1 · Qdrant Vector DB · Hochschule Aalen
+    </div>
+</div>
+
+<script>
+let currentQuery = '';
+let currentPage = 1;
+const PER_PAGE = 10;
+
+// ---- Input Handling ----
+const landingInput = document.getElementById('landingInput');
+const resultsInput = document.getElementById('resultsInput');
+const landingClear = document.getElementById('landingClear');
+const resultsClear = document.getElementById('resultsClear');
+
+[landingInput, resultsInput].forEach(input => {
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') performSearch(); });
+    input.addEventListener('input', () => {
+        const clearBtn = input === landingInput ? landingClear : resultsClear;
+        clearBtn.style.display = input.value ? 'block' : 'none';
+    });
+});
+landingClear.addEventListener('click', () => { landingInput.value = ''; landingClear.style.display = 'none'; landingInput.focus(); });
+resultsClear.addEventListener('click', () => { resultsInput.value = ''; resultsClear.style.display = 'none'; resultsInput.focus(); });
+
+function goHome() {
+    document.getElementById('landingPage').style.display = 'flex';
+    document.getElementById('resultsPage').style.display = 'none';
+    landingInput.value = '';
+    landingInput.focus();
+    document.title = 'HS Aalen | AI-Suche';
+}
+
+function getActiveInput() {
+    return document.getElementById('landingPage').style.display !== 'none' ? landingInput : resultsInput;
+}
+
+async function performSearch(page = 1) {
+    const q = getActiveInput().value.trim();
+    if (!q) return;
+
+    currentQuery = q;
+    currentPage = page;
+
+    // Switch to results view
+    document.getElementById('landingPage').style.display = 'none';
+    document.getElementById('resultsPage').style.display = 'block';
+    resultsInput.value = q;
+    document.title = q + ' - HS Aalen AI-Suche';
+
+    // Show loading
+    const loadingBar = document.getElementById('loadingBar');
+    const skeleton = document.getElementById('skeleton');
+    const aiSummary = document.getElementById('aiSummary');
+    const resultsList = document.getElementById('resultsList');
+    const pagination = document.getElementById('pagination');
+    const resultsInfo = document.getElementById('resultsInfo');
+
+    loadingBar.style.display = 'block';
+    skeleton.style.display = 'block';
+    aiSummary.style.display = 'none';
+    resultsList.innerHTML = '';
+    pagination.style.display = 'none';
+    resultsInfo.textContent = '';
+
+    try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}`);
+        const data = await res.json();
+
+        loadingBar.style.display = 'none';
+        skeleton.style.display = 'none';
+
+        // Results info
+        resultsInfo.textContent = `Ungefähr ${data.total_results} Ergebnisse`;
+
+        // AI Summary
+        if (data.summary && page === 1) {
+            aiSummary.style.display = 'block';
+            document.getElementById('summaryText').innerHTML = formatSummary(data.summary);
+
+            const sourcesEl = document.getElementById('summarySources');
+            sourcesEl.innerHTML = '';
+            if (data.sources) {
+                data.sources.forEach(s => {
+                    const a = document.createElement('a');
+                    a.href = s.url;
+                    a.target = '_blank';
+                    a.textContent = `[${s.index}] ${extractDomain(s.url)}`;
+                    a.title = s.url;
+                    sourcesEl.appendChild(a);
                 });
-
-            } catch (error) {
-                loading.style.display = 'none';
-                resultsDiv.innerHTML = '<p style="color:red; text-align:center">Fehler bei der Suche.</p>';
             }
+        } else {
+            aiSummary.style.display = 'none';
         }
 
-        function handleKey(e) {
-            if (e.key === 'Enter') performSearch();
+        // Results
+        data.results.forEach(r => {
+            const domain = extractDomain(r.url);
+            const path = extractPath(r.url);
+            const title = extractTitle(r.text, r.url);
+
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.innerHTML = `
+                <div class="result-item-site">
+                    <div class="result-item-favicon">${domain.charAt(0).toUpperCase()}</div>
+                    <div class="result-item-url-group">
+                        <div class="result-item-domain">${domain}</div>
+                        <div class="result-item-breadcrumb">${path}</div>
+                    </div>
+                </div>
+                <div class="result-item-title"><a href="${r.url}" target="_blank">${title}</a></div>
+                <div class="result-item-snippet">${highlightQuery(r.text, q)}</div>
+            `;
+            resultsList.appendChild(item);
+        });
+
+        // Pagination
+        if (data.total_results > PER_PAGE) {
+            pagination.style.display = 'flex';
+            renderPagination(data.page, Math.ceil(data.total_results / PER_PAGE), data.has_more);
         }
-    </script>
+
+    } catch (err) {
+        loadingBar.style.display = 'none';
+        skeleton.style.display = 'none';
+        resultsList.innerHTML = '<p style="color:#f28b82;padding:20px;">Fehler bei der Suche. Bitte versuche es erneut.</p>';
+    }
+}
+
+function renderPagination(current, totalPages, hasMore) {
+    const el = document.getElementById('pagination');
+    el.innerHTML = '';
+
+    // Previous
+    const prev = document.createElement('button');
+    prev.textContent = '← Zurück';
+    prev.disabled = current === 1;
+    prev.onclick = () => performSearch(current - 1);
+    el.appendChild(prev);
+
+    // Page numbers
+    const maxShow = 7;
+    let start = Math.max(1, current - 3);
+    let end = Math.min(totalPages, start + maxShow - 1);
+    if (end - start < maxShow - 1) start = Math.max(1, end - maxShow + 1);
+
+    for (let i = start; i <= end; i++) {
+        if (i === current) {
+            const span = document.createElement('span');
+            span.className = 'page-current';
+            span.textContent = i;
+            el.appendChild(span);
+        } else {
+            const btn = document.createElement('button');
+            btn.textContent = i;
+            btn.onclick = () => performSearch(i);
+            el.appendChild(btn);
+        }
+    }
+
+    // Next
+    const next = document.createElement('button');
+    next.textContent = 'Weiter →';
+    next.disabled = !hasMore;
+    next.onclick = () => performSearch(current + 1);
+    el.appendChild(next);
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ---- Helpers ----
+function extractDomain(url) {
+    try { return new URL(url).hostname; } catch { return url; }
+}
+
+function extractPath(url) {
+    try {
+        const u = new URL(url);
+        return u.pathname.split('/').filter(Boolean).join(' › ');
+    } catch { return ''; }
+}
+
+function extractTitle(text, url) {
+    if (!text) return extractPath(url) || url;
+    const firstLine = text.split('\n')[0].trim();
+    return firstLine.length > 80 ? firstLine.substring(0, 77) + '...' : firstLine;
+}
+
+function highlightQuery(text, query) {
+    if (!text || !query) return text || '';
+    const words = query.split(/\s+/).filter(w => w.length > 2);
+    let result = text.substring(0, 300);
+    words.forEach(word => {
+        const re = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        result = result.replace(re, '<b>$1</b>');
+    });
+    return result + (text.length > 300 ? '...' : '');
+}
+
+function formatSummary(text) {
+    // Make [1], [2] etc. styled
+    return text.replace(/\[(\d+)\]/g, '<strong style="color:var(--accent)">[$1]</strong>');
+}
+</script>
+
 </body>
 </html>
