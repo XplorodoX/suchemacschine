@@ -7,13 +7,9 @@ from sentence_transformers import SentenceTransformer
 
 # Configuration
 COLLECTION_NAME = "hs_aalen_search"
-MODEL_NAME = "all-MiniLM-L6-v2"
+MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 QDRANT_HOST = "localhost"
 QDRANT_PORT = 6333
-
-# Ollama Configuration
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "deepseek-r1:8b"
 
 # Ollama Configuration
 OLLAMA_URL = "http://localhost:11434/api/generate"

@@ -62,3 +62,30 @@ Die Navigation zwischen den Seiten wurde für maximale Stabilität optimiert:
 - **Layout-Stabilität**: Durch das Vermeiden von unnötigen View-Switches und das atomare Update der Liste gibt es kein "Flackern" oder "Springen" mehr.
 
 Damit ist die Benutzeroberfläche nun auf dem Niveau einer modernen Web-App.
+
+## Performance-Turbo: Intelligentes Caching
+
+Um die Wartezeiten bei aktivierten KI-Funktionen (Re-Ranking & Summary) auf ein Minimum zu reduzieren, wurde ein Server-seitiger Cache implementiert:
+- **Redundanz-Vermeidung**: Teure LLM-Berechnungen (wie das Sortieren von 50 Ergebnissen) werden für jede Abfrage zwischengespeichert.
+- **Instant Pagination**: Beim Klick auf Seite 2, 3 etc. kommen die Ergebnisse nun ohne jede Verzögerung direkt aus dem Arbeitsspeicher, da die gesamte Liste bereits beim ersten Aufruf verarbeitet wurde.
+- **Ressourcen-Schonung**: Sowohl der Re-Ranker als auch die Zusammenfassung werden pro Suche nur noch einmal aufgerufen, was die Ollama-Instanz massiv entlastet.
+
+Damit ist die Suche nun nicht mehr nur "smooth" im UI, sondern auch technisch extrem performant.
+
+## Intelligente Snippets (Kontext-Vorschau)
+
+Die Textvorschau unter den Suchergebnissen wurde radikal verbessert:
+- **Kontext-Findung**: Das System sucht nun aktiv nach der Stelle im Dokument, an der deine Suchbegriffe vorkommen.
+- **Sliding Window**: Statt einfach nur den Anfang der Seite anzuzeigen (wo oft nur Menüs oder Header stehen), wird ein Fenster von ca. 300 Zeichen um den Treffer herum ausgeschnitten.
+- **Präzision**: Damit siehst du sofort, *warum* ein Ergebnis gefunden wurde und in welchem Zusammenhang dein Suchbegriff steht, noch bevor du auf den Link klickst.
+
+Dies behebt das Problem von "unpassenden" Texten und macht die Ergebnisliste deutlich vertrauenswürdiger und hilfreicher.
+
+## Authentische Vorschau-Texte
+
+Um den Eindruck von "KI-generierten" Texten zu vermeiden, wurde die Extraktionslogik für Titel und Snippets verfeinert:
+- **Präzise Titel**: Das System erkennt nun automatisch Navigations-Elemente (z.B. „Navigation überspringen“) und filtert diese aus. Der angezeigte Titel ist nun immer der erste inhaltlich relevante Satz der Seite.
+- **Satz-basierte Snippets**: Vorschau-Texte beginnen nun bevorzugt am Anfang eines echten Satzes (nach einem Punkt), anstatt mitten im Wort oder Satz abzubrechen.
+- **Original-Daten**: Die Texte stammen zu 100% aus dem originalen Webseiten-Inhalt ("Raw Scrape") und werden lediglich intelligent ausgeschnitten, um die maximale Relevanz zur Suchanfrage zu gewährleisten.
+
+Dadurch wirken die Suchergebnisse nun so, wie man es von einer professionellen Suchmaschine erwartet – authentisch und direkt aus der Quelle.

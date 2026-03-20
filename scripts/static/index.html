@@ -869,19 +869,60 @@ function extractPath(url) {
 
 function extractTitle(text, url) {
     if (!text) return extractPath(url) || url;
-    const firstLine = text.split('\n')[0].trim();
-    return firstLine.length > 80 ? firstLine.substring(0, 77) + '...' : firstLine;
+    
+    // Split into lines and find the first non-empty, non-boilerplate line
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
+    const boilerplate = ['navigation', 'überspringen', 'home', 'hs aalen', 'menü', 'suchen', 'suche'];
+    
+    for (let line of lines) {
+        if (!boilerplate.some(b => line.toLowerCase().includes(b))) {
+             return line.length > 80 ? line.substring(0, 77) + '...' : line;
+        }
+    }
+    
+    return lines[0] || extractPath(url) || url;
 }
 
 function highlightQuery(text, query) {
     if (!text || !query) return text || '';
+    
     const words = query.split(/\s+/).filter(w => w.length > 2);
-    let result = text.substring(0, 300);
+    const windowSize = 280;
+
+    // 1. Find the best position
+    let bestPos = -1;
+    let lowerText = text.toLowerCase();
+    for (const word of words) {
+        const pos = lowerText.indexOf(word.toLowerCase());
+        if (pos !== -1 && (bestPos === -1 || pos < bestPos)) {
+            bestPos = pos;
+        }
+    }
+
+    // 2. Extract window and align to sentence starts if possible
+    let start = 0;
+    if (bestPos !== -1) {
+        start = Math.max(0, bestPos - 60);
+        // Try to find a sentence boundary nearby
+        const sentenceBreak = text.substring(start, bestPos).lastIndexOf('.');
+        if (sentenceBreak !== -1) {
+            start = start + sentenceBreak + 1;
+        }
+    }
+
+    let snippet = text.substring(start, start + windowSize).trim();
+    if (start > 0) snippet = '... ' + snippet;
+
+    // 3. Clean up newlines for display
+    snippet = snippet.replace(/\s+/g, ' ');
+
+    // 4. Highlight
     words.forEach(word => {
         const re = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        result = result.replace(re, '<b>$1</b>');
+        snippet = snippet.replace(re, '<b>$1</b>');
     });
-    return result + (text.length > 300 ? '...' : '');
+
+    return snippet + (start + windowSize < text.length ? '...' : '');
 }
 
 function formatSummary(text) {
