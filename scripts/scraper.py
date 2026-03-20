@@ -79,7 +79,7 @@ def extract_content(session, url):
         soup = BeautifulSoup(response.content, "html.parser")
 
         # Remove obvious non-content elements site-wide first
-        for element in soup(["script", "style", "nav", "footer", "header", "form", "aside", "noscript"]):
+        for element in soup(["script", "style", "nav", "footer", "form", "aside", "noscript"]):
             element.decompose()
 
         # Find the most likely "main" container
