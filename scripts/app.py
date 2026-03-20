@@ -81,6 +81,45 @@ def call_llm(prompt: str, model_name: str, provider: str = "ollama", openai_api_
     return (response.json().get("response", "") or "").strip()
 
 
+def is_ollama_available() -> bool:
+    try:
+        base_ollama = OLLAMA_URL.replace("/api/generate", "/api/tags")
+        response = requests.get(base_ollama, timeout=4)
+        response.raise_for_status()
+        return True
+    except Exception:
+        return False
+
+
+def is_openai_available(openai_api_key: str = "") -> bool:
+    api_key = (openai_api_key or os.getenv("OPENAI_API_KEY", "")).strip()
+    if not api_key:
+        return False
+    try:
+        response = requests.get(
+            "https://api.openai.com/v1/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=6,
+        )
+        response.raise_for_status()
+        return True
+    except Exception:
+        return False
+
+
+def resolve_provider(provider: str, openai_api_key: str = "") -> str:
+    requested = (provider or "auto").lower().strip()
+    if requested in {"ollama", "openai", "none"}:
+        return requested
+
+    # Auto mode: prefer local Ollama first, then OpenAI (if key is available), otherwise no LLM.
+    if is_ollama_available():
+        return "ollama"
+    if is_openai_available(openai_api_key):
+        return "openai"
+    return "none"
+
+
 def expand_query(query: str, model_name: str, provider: str = "ollama", openai_api_key: str = "") -> str:
     """Focused query expansion: produces a short, precise search sentence."""
     prompt = (
@@ -337,15 +376,32 @@ def generate_summary(query: str, results: list, model_name: str, provider: str =
 
 @app.get("/api/models")
 async def list_models(
-    provider: str = Query("ollama", pattern="^(ollama|openai)$"),
+    provider: str = Query("auto", pattern="^(auto|none|ollama|openai)$"),
     openai_api_key: str = Query(""),
     x_openai_key: Optional[str] = Header(default=None, alias="X-OpenAI-Key"),
 ):
     """List available models for selected provider."""
-    if provider == "openai":
-        api_key = (openai_api_key or x_openai_key or os.getenv("OPENAI_API_KEY", "")).strip()
+    active_openai_key = (openai_api_key or x_openai_key or "").strip()
+    requested_provider = (provider or "auto").lower().strip()
+    resolved_provider = resolve_provider(requested_provider, active_openai_key)
+
+    if resolved_provider == "none":
+        return {
+            "models": [],
+            "provider": "none",
+            "requested_provider": requested_provider,
+            "using_fallback": False,
+        }
+
+    if resolved_provider == "openai":
+        api_key = (active_openai_key or os.getenv("OPENAI_API_KEY", "")).strip()
         if not api_key:
-            return {"models": OPENAI_FALLBACK_MODELS, "provider": "openai", "using_fallback": True}
+            return {
+                "models": OPENAI_FALLBACK_MODELS,
+                "provider": "openai",
+                "requested_provider": requested_provider,
+                "using_fallback": True,
+            }
         try:
             response = requests.get(
                 "https://api.openai.com/v1/models",
@@ -359,10 +415,16 @@ async def list_models(
             return {
                 "models": preferred_sorted if preferred_sorted else OPENAI_FALLBACK_MODELS,
                 "provider": "openai",
+                "requested_provider": requested_provider,
                 "using_fallback": not bool(preferred_sorted),
             }
         except Exception:
-            return {"models": OPENAI_FALLBACK_MODELS, "provider": "openai", "using_fallback": True}
+            return {
+                "models": OPENAI_FALLBACK_MODELS,
+                "provider": "openai",
+                "requested_provider": requested_provider,
+                "using_fallback": True,
+            }
 
     try:
         # Use the base URL for Ollama tags
@@ -370,10 +432,20 @@ async def list_models(
         response = requests.get(base_ollama, timeout=10)
         response.raise_for_status()
         models_data = response.json().get("models", [])
-        return {"models": [m["name"] for m in models_data], "provider": "ollama", "using_fallback": False}
+        return {
+            "models": [m["name"] for m in models_data],
+            "provider": "ollama",
+            "requested_provider": requested_provider,
+            "using_fallback": False,
+        }
     except Exception as e:
         print(f"Error fetching models: {e}")
-        return {"models": [OLLAMA_MODEL], "provider": "ollama", "using_fallback": True}
+        return {
+            "models": [OLLAMA_MODEL],
+            "provider": "ollama",
+            "requested_provider": requested_provider,
+            "using_fallback": True,
+        }
 
 
 @app.get("/api/search")
@@ -385,17 +457,32 @@ async def api_search(
     include_rerank: bool = Query(True),
     include_expansion: bool = Query(True),
     strict_match: bool = Query(True),
-    model_name: str = Query(OLLAMA_MODEL),
-    provider: str = Query("ollama", pattern="^(ollama|openai)$"),
+    model_name: str = Query(""),
+    provider: str = Query("auto", pattern="^(auto|none|ollama|openai)$"),
     openai_api_key: str = Query(""),
     x_openai_key: Optional[str] = Header(default=None, alias="X-OpenAI-Key"),
 ):
     """Search endpoint with caching to improve performance."""
     active_openai_key = (openai_api_key or x_openai_key or "").strip()
-    model_for_provider = model_name or (OPENAI_MODEL if provider == "openai" else OLLAMA_MODEL)
+    requested_provider = (provider or "auto").lower().strip()
+    resolved_provider = resolve_provider(requested_provider, active_openai_key)
+
+    llm_enabled = resolved_provider in {"ollama", "openai"}
+    include_expansion = include_expansion and llm_enabled
+    include_rerank = include_rerank and llm_enabled
+    include_summary = include_summary and llm_enabled
+
+    if resolved_provider == "openai":
+        model_for_provider = model_name or OPENAI_MODEL
+    elif resolved_provider == "ollama":
+        model_for_provider = model_name or OLLAMA_MODEL
+    else:
+        model_for_provider = ""
+
     cache_key = (
         q,
-        provider,
+        requested_provider,
+        resolved_provider,
         model_for_provider,
         include_rerank,
         include_expansion,
@@ -411,7 +498,7 @@ async def api_search(
         print(f"DEBUG: Cache miss for '{q}'. Performing search...")
         # A. Expansion
         semantic_query = (
-            expand_query(q, model_for_provider, provider=provider, openai_api_key=active_openai_key)
+            expand_query(q, model_for_provider, provider=resolved_provider, openai_api_key=active_openai_key)
             if include_expansion
             else q
         )
@@ -434,7 +521,7 @@ async def api_search(
             results,
             model_for_provider,
             include_rerank,
-            provider=provider,
+            provider=resolved_provider,
             openai_api_key=active_openai_key,
             strict_match=strict_match,
         )
@@ -446,7 +533,7 @@ async def api_search(
                 q,
                 ranked_results,
                 model_for_provider,
-                provider=provider,
+                provider=resolved_provider,
                 openai_api_key=active_openai_key,
             )
 
@@ -461,7 +548,7 @@ async def api_search(
             q,
             ranked_results,
             model_for_provider,
-            provider=provider,
+            provider=resolved_provider,
             openai_api_key=active_openai_key,
         )
         search_cache[cache_key] = (ranked_results, summary, semantic_query)
@@ -482,7 +569,9 @@ async def api_search(
         "has_more": end < len(ranked_results),
         "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])],
         "model": model_for_provider,
-        "provider": provider,
+        "provider": resolved_provider,
+        "requested_provider": requested_provider,
+        "llm_enabled": llm_enabled,
     }
 
 
