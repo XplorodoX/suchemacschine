@@ -7,8 +7,8 @@ from sentence_transformers import SentenceTransformer
 INPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data.jsonl"
 OUTPUT_FILE = "/Users/merluee/Desktop/suchemacschine/processed_data.jsonl"
 
-# Choice of model: 'all-MiniLM-L6-v2' is small, fast, and good for general purpose.
-MODEL_NAME = "all-MiniLM-L6-v2"
+# Choice of model: multilingual model for proper German text support.
+MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 
 
 def load_data(file_path):

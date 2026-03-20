@@ -14,7 +14,8 @@ RUN pip install --no-cache-dir \
     qdrant-client \
     sentence-transformers \
     requests \
-    aiofiles
+    aiofiles \
+    numpy
 
 # Copy the application code
 COPY app.py .
