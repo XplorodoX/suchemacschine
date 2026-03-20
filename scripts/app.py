@@ -92,51 +92,62 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
     return merged[:total_limit]
 
 
-def rerank_results(query: str, results: list) -> list:
-    """Use LLM to re-rank results by relevance to the original query."""
+def boost_and_rank(query: str, results: list) -> list:
+    """Combine vector score with keyword matching and LLM re-ranking."""
     if not results:
         return results
 
-    # Build compact snippets for re-ranking
+    # 1. Simple Keyword Boosting (BM25-lite)
+    query_words = set(query.lower().split())
+    for res in results:
+        text = res.get("text", "").lower()
+        url = res.get("url", "").lower()
+        match_count = sum(1 for word in query_words if word in text or word in url)
+        # Boost score by 10% for each matching word
+        res["score"] = res["score"] * (1 + (match_count * 0.1))
+
+    # Sort after boost
+    results = sorted(results, key=lambda x: x["score"], reverse=True)
+
+    # 2. LLM Re-ranking (Top 10 only for speed and focus)
+    top_n = 10
+    subset = results[:top_n]
+    
     snippets = ""
-    for i, res in enumerate(results):
-        text = res.get("text", "")[:150]
-        snippets += f"[{i}] {text}\n"
+    for i, res in enumerate(subset):
+        snippet = res.get("text", "")[:200].replace("\n", " ").strip()
+        snippets += f"ID {i}: {snippet}\n"
 
     prompt = (
-        "Bewerte die Relevanz jedes Suchergebnisses zur Anfrage: "
-        f'"{query}"\n\n'
-        f"Ergebnisse:\n{snippets}\n"
-        "Antworte NUR mit einer kommagetrennten Liste der Indexnummern, "
-        "sortiert nach Relevanz (relevanteste zuerst). "
-        "Beispiel: 3,0,5,1,2,4"
+        f"Anfrage: \"{query}\"\n\n"
+        "Bewerte die Relevanz der folgenden Ergebnisse. "
+        "Antworte NUR mit den IDs der relevantesten Ergebnisse in "
+        "der besten Reihenfolge, getrennt durch Kommata.\n"
+        "Beispiel: 2, 0, 5, 1\n\n"
+        f"Ergebnisse:\n{snippets}"
     )
     try:
         response = requests.post(
             OLLAMA_URL,
             json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
-            timeout=30,
+            timeout=40,
         )
         response.raise_for_status()
         raw = response.json().get("response", "").strip()
         raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
 
-        # Parse the ranking indices
-        indices = []
-        for part in raw.replace(" ", "").split(","):
-            part = part.strip()
-            if part.isdigit():
-                idx = int(part)
-                if 0 <= idx < len(results) and idx not in indices:
-                    indices.append(idx)
+        # Parse indices
+        new_order = []
+        for match in re.finditer(r"\d+", raw):
+            idx = int(match.group())
+            if 0 <= idx < len(subset) and idx not in new_order:
+                new_order.append(idx)
 
-        # If we got a valid reranking, use it
-        if len(indices) >= len(results) // 2:
-            reranked = [results[i] for i in indices]
-            # Append any results that weren't ranked
-            remaining = [r for i, r in enumerate(results) if i not in indices]
-            return reranked + remaining
-
+        if new_order:
+            reranked = [subset[i] for i in new_order]
+            remaining_subset = [r for i, r in enumerate(subset) if i not in new_order]
+            return reranked + remaining_subset + results[top_n:]
+            
         return results
     except Exception:
         return results
@@ -144,20 +155,20 @@ def rerank_results(query: str, results: list) -> list:
 
 def generate_summary(query: str, results: list) -> str:
     """Generate an AI summary of the search results with source references."""
+    top_results = results[:5]
     snippets = ""
-    for i, res in enumerate(results[:5], 1):
-        text = res.get("text", "")[:300]
+    for i, res in enumerate(top_results, 1):
+        text = res.get("text", "")[:350]
         url = res.get("url", "")
-        snippets += f"[{i}] {url}\n{text}\n\n"
+        snippets += f"[{i}] QUELLE: {url}\nTEXT: {text}\n\n"
 
     prompt = (
-        "Du bist ein hilfreicher KI-Assistent der Hochschule Aalen. "
-        'Der Nutzer hat nach folgendem gesucht: "' + query + '"\n\n'
-        "Hier sind die relevantesten Suchergebnisse:\n\n" + snippets
-        + "\nErstelle eine kurze, hilfreiche Zusammenfassung (3-5 Sätze) "
-        "basierend auf diesen Ergebnissen. Verweise auf die Quellen mit "
-        "Nummern in eckigen Klammern wie [1], [2] etc. "
-        "Schreibe auf Deutsch. Antworte NUR mit der Zusammenfassung."
+        "Du bist der HS Aalen Such-Assistent. "
+        f"Beantworte die Anfrage \"{query}\" basierend auf diesen Quellen:\n\n{snippets}\n"
+        "Regeln:\n"
+        "1. Nutze [1], [2] etc. für Zitate.\n"
+        "2. Sei präzise und nenne konkrete Fakten.\n"
+        "3. Antworte NUR mit der Zusammenfassung auf Deutsch."
     )
     try:
         response = requests.post(
@@ -178,51 +189,47 @@ async def api_search(
     q: str = Query(...),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
+    include_summary: bool = Query(True),
 ):
-    """Search endpoint with hybrid search, LLM re-ranking, and AI summary."""
-    # 1. Focused query expansion
+    """Search endpoint with hybrid search, boosting, and LLM re-ranking."""
+    # 1. Expansion
     semantic_query = expand_query(q)
 
-    # 2. Hybrid search (original + expanded)
-    raw_results = hybrid_search(q, semantic_query, total_limit=30)
+    # 2. Vector Search (increased limit for better re-ranking)
+    raw_points = hybrid_search(q, semantic_query, total_limit=50)
 
-    # 3. Format results
-    all_results = []
-    for res in raw_results:
-        all_results.append({
-            "score": res.score,
-            "url": res.payload.get("url"),
-            "text": res.payload.get("text"),
+    # 3. Initial Formatting
+    results = []
+    for p in raw_points:
+        results.append({
+            "score": float(p.score),
+            "url": p.payload.get("url"),
+            "text": p.payload.get("text"),
         })
 
-    # 4. LLM Re-ranking (only top results)
-    all_results = rerank_results(q, all_results)
+    # 4. Boost and Re-rank
+    ranked_results = boost_and_rank(q, results)
 
-    total_results = len(all_results)
-
-    # 5. Paginate
+    # 5. Pagination
     start = (page - 1) * per_page
     end = start + per_page
-    page_results = all_results[start:end]
+    page_results = ranked_results[start:end]
 
-    # 6. AI Summary (only on first page)
+    # 6. Summary (only on page 1 and if requested)
     summary = ""
-    if page == 1 and page_results:
-        summary = generate_summary(q, page_results)
+    if page == 1 and page_results and include_summary:
+        summary = generate_summary(q, ranked_results)
 
     return {
         "original_query": q,
         "expanded_query": semantic_query,
         "summary": summary,
         "results": page_results,
+        "total_results": len(ranked_results),
         "page": page,
         "per_page": per_page,
-        "total_results": total_results,
-        "has_more": end < total_results,
-        "sources": [
-            {"index": i + 1, "url": r["url"]}
-            for i, r in enumerate(page_results[:5])
-        ],
+        "has_more": end < len(ranked_results),
+        "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])]
     }
 
 

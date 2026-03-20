@@ -348,6 +348,49 @@
             100% { opacity: 0.5; }
         }
 
+        /* =================== TOGGLE SWITCH =================== */
+        .summary-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+            padding: 8px 12px;
+            border-radius: 20px;
+            transition: background 0.2s;
+        }
+        .summary-toggle:hover { background: var(--surface-hover); }
+        .summary-toggle.active { color: var(--accent); }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--border);
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px; width: 14px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(14px); }
+
         /* =================== FOOTER =================== */
         .footer {
             text-align: center;
@@ -378,6 +421,13 @@
     </div>
     <div class="search-buttons">
         <button onclick="performSearch()">AI-Suche</button>
+        <label class="summary-toggle">
+            <div class="switch">
+                <input type="checkbox" id="landingSummaryToggle" checked>
+                <span class="slider"></span>
+            </div>
+            KI-Zusammenfassung
+        </label>
     </div>
 </div>
 
@@ -394,6 +444,13 @@
             <input type="text" id="resultsInput" placeholder="Suche..." autocomplete="off">
             <button class="clear-btn" id="resultsClear">&times;</button>
         </div>
+        <label class="summary-toggle">
+            <div class="switch">
+                <input type="checkbox" id="resultsSummaryToggle" checked>
+                <span class="slider"></span>
+            </div>
+            <span class="toggle-text">KI-Zusammenfassung</span>
+        </label>
     </div>
 
     <div class="results-body">
@@ -450,6 +507,13 @@ const resultsClear = document.getElementById('resultsClear');
 landingClear.addEventListener('click', () => { landingInput.value = ''; landingClear.style.display = 'none'; landingInput.focus(); });
 resultsClear.addEventListener('click', () => { resultsInput.value = ''; resultsClear.style.display = 'none'; resultsInput.focus(); });
 
+// Sync toggles
+const landingToggle = document.getElementById('landingSummaryToggle');
+const resultsToggle = document.getElementById('resultsSummaryToggle');
+
+landingToggle.addEventListener('change', () => { resultsToggle.checked = landingToggle.checked; });
+resultsToggle.addEventListener('change', () => { landingToggle.checked = resultsToggle.checked; });
+
 function goHome() {
     document.getElementById('landingPage').style.display = 'flex';
     document.getElementById('resultsPage').style.display = 'none';
@@ -491,7 +555,8 @@ async function performSearch(page = 1) {
     resultsInfo.textContent = '';
 
     try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}`);
+        const includeSummary = document.getElementById('resultsSummaryToggle').checked;
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=${includeSummary}`);
         const data = await res.json();
 
         loadingBar.style.display = 'none';
