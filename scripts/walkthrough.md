@@ -17,3 +17,12 @@ Die Suchoberfläche bietet nun volle Kontrolle über die KI-Pipeline:
 - **Re-Ranking an/aus**: Die intelligente Neusortierung der Top-Ergebnisse durch das LLM lässt sich umschalten. Ohne Re-Ranking wird die rein vektorbasierte Sortierung (mit Keyword-Boosting) verwendet.
 
 Diese Regler erlauben es, die Balance zwischen Geschwindigkeit und Präzision perfekt auf die aktuelle Suche abzustimmen.
+
+## User-Feedback-Loop (Kontinuierliche Verbesserung)
+
+Um die Fakten-Genauigkeit der KI-Zusammenfassungen langfristig zu verbessern, wurde ein Feedback-System integriert:
+- **Bewertung**: Unter jeder Zusammenfassung befinden sich nun "Daumen hoch" und "Daumen runter" Buttons.
+- **Logging**: Jede Bewertung wird zusammen mit der Suchanfrage, der generierten Antwort und dem verwendeten Modell in einer `feedback.jsonl` Datei auf dem Server gespeichert.
+- **Analyse**: Diese Daten ermöglichen es, systematische Fehler der KI zu identifizieren und die Prompts oder das Retrieval gezielt zu optimieren.
+
+Damit ist der Grundstein für eine selbstlernende Suchmaschine gelegt, die mit jeder Benutzer-Interaktion besser wird.

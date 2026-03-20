@@ -1,11 +1,14 @@
 import re
 import requests
-from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse
-from qdrant_client import QdrantClient
-from sentence_transformers import SentenceTransformer
+import json
 import os
 import numpy as np
+from datetime import datetime
+from fastapi import FastAPI, Query, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from qdrant_client import QdrantClient
+from sentence_transformers import SentenceTransformer
 
 # Configuration (Overridden by Environment Variables)
 COLLECTION_NAME = "hs_aalen_search"
@@ -252,6 +255,32 @@ async def api_search(
         "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])],
         "model": model_name
     }
+
+
+class FeedbackRequest(BaseModel):
+    query: str
+    summary: str
+    rating: int  # 1 for up, -1 for down
+    model: str
+
+
+@app.post("/api/feedback")
+async def save_feedback(req: FeedbackRequest):
+    """Save user feedback to a JSONL file."""
+    try:
+        feedback_data = {
+            "timestamp": datetime.now().isoformat(),
+            "query": req.query,
+            "summary": req.summary,
+            "rating": req.rating,
+            "model": req.model
+        }
+        with open("feedback.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(feedback_data, ensure_ascii=False) + "\n")
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Error saving feedback: {e}")
+        raise HTTPException(status_code=500, detail="Could not save feedback")
 
 
 @app.get("/")

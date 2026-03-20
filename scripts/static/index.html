@@ -217,6 +217,45 @@
         }
         .ai-summary-sources a:hover { background: var(--surface-hover); }
 
+        /* =================== FEEDBACK =================== */
+        .ai-summary-feedback {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .feedback-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+        .feedback-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-bg);
+        }
+        .feedback-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        .feedback-thanks {
+            color: #81c995;
+            font-weight: 500;
+            display: none;
+        }
+
         /* =================== RESULT CARDS =================== */
         .result-item {
             margin-bottom: 28px;
@@ -507,6 +546,17 @@
             </div>
             <div class="ai-summary-text" id="summaryText"></div>
             <div class="ai-summary-sources" id="summarySources"></div>
+            
+            <div class="ai-summary-feedback" id="feedbackArea">
+                <span>War diese Antwort hilfreich?</span>
+                <button class="feedback-btn" onclick="sendFeedback(1)" id="btnUp">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                </button>
+                <button class="feedback-btn" onclick="sendFeedback(-1)" id="btnDown">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+                </button>
+                <span class="feedback-thanks" id="feedbackThanks">Vielen Dank für Ihr Feedback!</span>
+            </div>
         </div>
 
         <!-- Search Results -->
@@ -684,6 +734,25 @@ async function performSearch(page = 1) {
         skeleton.style.display = 'none';
         resultsList.innerHTML = '<p style="color:#f28b82;padding:20px;">Fehler bei der Suche. Bitte versuche es erneut.</p>';
     }
+}
+
+async function sendFeedback(rating) {
+    const q = currentQuery;
+    const summary = document.getElementById('summaryText').innerText;
+    const model = document.getElementById('resultsModelSelect').value;
+    
+    // UI update
+    document.getElementById('btnUp').style.display = 'none';
+    document.getElementById('btnDown').style.display = 'none';
+    document.getElementById('feedbackThanks').style.display = 'inline';
+    
+    try {
+        await fetch('/api/feedback', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ query: q, summary: summary, rating: rating, model: model })
+        });
+    } catch (e) { console.error('Error sending feedback:', e); }
 }
 
 function renderPagination(current, totalPages, hasMore) {
