@@ -348,6 +348,21 @@
             100% { opacity: 0.5; }
         }
 
+        /* =================== MODEL SELECTOR =================== */
+        .model-selector {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .model-selector:hover { border-color: var(--accent); }
+
         /* =================== TOGGLE SWITCH =================== */
         .summary-toggle {
             display: flex;
@@ -421,12 +436,22 @@
     </div>
     <div class="search-buttons">
         <button onclick="performSearch()">AI-Suche</button>
+        <select id="landingModelSelect" class="model-selector">
+            <option value="deepseek-r1:8b">DeepSeek 8B (Default)</option>
+        </select>
         <label class="summary-toggle">
             <div class="switch">
                 <input type="checkbox" id="landingSummaryToggle" checked>
                 <span class="slider"></span>
             </div>
-            KI-Zusammenfassung
+            Zusammenfassung
+        </label>
+        <label class="summary-toggle">
+            <div class="switch">
+                <input type="checkbox" id="landingRerankToggle" checked>
+                <span class="slider"></span>
+            </div>
+            Re-Ranking
         </label>
     </div>
 </div>
@@ -444,13 +469,23 @@
             <input type="text" id="resultsInput" placeholder="Suche..." autocomplete="off">
             <button class="clear-btn" id="resultsClear">&times;</button>
         </div>
-        <label class="summary-toggle">
-            <div class="switch">
-                <input type="checkbox" id="resultsSummaryToggle" checked>
-                <span class="slider"></span>
-            </div>
-            <span class="toggle-text">KI-Zusammenfassung</span>
-        </label>
+        <div style="display:flex; gap:12px; align-items:center;">
+            <select id="resultsModelSelect" class="model-selector"></select>
+            <label class="summary-toggle">
+                <div class="switch">
+                    <input type="checkbox" id="resultsSummaryToggle" checked>
+                    <span class="slider"></span>
+                </div>
+                Zusammenfassung
+            </label>
+            <label class="summary-toggle">
+                <div class="switch">
+                    <input type="checkbox" id="resultsRerankToggle" checked>
+                    <span class="slider"></span>
+                </div>
+                Re-Ranking
+            </label>
+        </div>
     </div>
 
     <div class="results-body">
@@ -507,12 +542,40 @@ const resultsClear = document.getElementById('resultsClear');
 landingClear.addEventListener('click', () => { landingInput.value = ''; landingClear.style.display = 'none'; landingInput.focus(); });
 resultsClear.addEventListener('click', () => { resultsInput.value = ''; resultsClear.style.display = 'none'; resultsInput.focus(); });
 
-// Sync toggles
+// Controls Sync
 const landingToggle = document.getElementById('landingSummaryToggle');
 const resultsToggle = document.getElementById('resultsSummaryToggle');
+const landingRerank = document.getElementById('landingRerankToggle');
+const resultsRerank = document.getElementById('resultsRerankToggle');
+const landingModel = document.getElementById('landingModelSelect');
+const resultsModel = document.getElementById('resultsModelSelect');
 
 landingToggle.addEventListener('change', () => { resultsToggle.checked = landingToggle.checked; });
 resultsToggle.addEventListener('change', () => { landingToggle.checked = resultsToggle.checked; });
+landingRerank.addEventListener('change', () => { resultsRerank.checked = landingRerank.checked; });
+resultsRerank.addEventListener('change', () => { landingRerank.checked = resultsRerank.checked; });
+landingModel.addEventListener('change', () => { resultsModel.value = landingModel.value; });
+resultsModel.addEventListener('change', () => { landingModel.value = resultsModel.value; });
+
+async function initModels() {
+    try {
+        const res = await fetch('/api/models');
+        const data = await res.json();
+        const models = data.models || [];
+        
+        [landingModel, resultsModel].forEach(select => {
+            select.innerHTML = '';
+            models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                if (m.includes('deepseek')) opt.textContent += ' (Rec.)';
+                select.appendChild(opt);
+            });
+        });
+    } catch (e) { console.error('Error loading models:', e); }
+}
+initModels();
 
 function goHome() {
     document.getElementById('landingPage').style.display = 'flex';
@@ -556,7 +619,9 @@ async function performSearch(page = 1) {
 
     try {
         const includeSummary = document.getElementById('resultsSummaryToggle').checked;
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=${includeSummary}`);
+        const includeRerank = document.getElementById('resultsRerankToggle').checked;
+        const modelName = document.getElementById('resultsModelSelect').value;
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=${includeSummary}&include_rerank=${includeRerank}&model_name=${encodeURIComponent(modelName)}`);
         const data = await res.json();
 
         loadingBar.style.display = 'none';

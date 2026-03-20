@@ -92,8 +92,8 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
     return merged[:total_limit]
 
 
-def boost_and_rank(query: str, results: list) -> list:
-    """Combine vector score with keyword matching and LLM re-ranking."""
+def boost_and_rank(query: str, results: list, model_name: str, include_rerank: bool) -> list:
+    """Combine vector score with keyword matching and optional LLM re-ranking."""
     if not results:
         return results
 
@@ -109,7 +109,10 @@ def boost_and_rank(query: str, results: list) -> list:
     # Sort after boost
     results = sorted(results, key=lambda x: x["score"], reverse=True)
 
-    # 2. LLM Re-ranking (Top 10 only for speed and focus)
+    # 2. LLM Re-ranking (Only if requested)
+    if not include_rerank:
+        return results
+
     top_n = 10
     subset = results[:top_n]
     
@@ -129,7 +132,7 @@ def boost_and_rank(query: str, results: list) -> list:
     try:
         response = requests.post(
             OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            json={"model": model_name, "prompt": prompt, "stream": False},
             timeout=40,
         )
         response.raise_for_status()
@@ -153,8 +156,8 @@ def boost_and_rank(query: str, results: list) -> list:
         return results
 
 
-def generate_summary(query: str, results: list) -> str:
-    """Generate an AI summary of the search results with source references."""
+def generate_summary(query: str, results: list, model_name: str) -> str:
+    """Generate an AI summary using the specified model."""
     top_results = results[:5]
     snippets = ""
     for i, res in enumerate(top_results, 1):
@@ -173,7 +176,7 @@ def generate_summary(query: str, results: list) -> str:
     try:
         response = requests.post(
             OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            json={"model": model_name, "prompt": prompt, "stream": False},
             timeout=60,
         )
         response.raise_for_status()
@@ -184,21 +187,38 @@ def generate_summary(query: str, results: list) -> str:
         return ""
 
 
+@app.get("/api/models")
+async def list_models():
+    """Proxy request to Ollama to list available models."""
+    try:
+        # Use the base URL for Ollama tags
+        base_ollama = OLLAMA_URL.replace("/api/generate", "/api/tags")
+        response = requests.get(base_ollama, timeout=10)
+        response.raise_for_status()
+        models_data = response.json().get("models", [])
+        return {"models": [m["name"] for m in models_data]}
+    except Exception as e:
+        print(f"Error fetching models: {e}")
+        return {"models": [OLLAMA_MODEL]}
+
+
 @app.get("/api/search")
 async def api_search(
     q: str = Query(...),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
     include_summary: bool = Query(True),
+    include_rerank: bool = Query(True),
+    model_name: str = Query(OLLAMA_MODEL),
 ):
-    """Search endpoint with hybrid search, boosting, and LLM re-ranking."""
-    # 1. Expansion
+    """Search endpoint with dynamic controls."""
+    # 1. Expansion (always use default or specified model)
     semantic_query = expand_query(q)
 
-    # 2. Vector Search (increased limit for better re-ranking)
+    # 2. Vector Search
     raw_points = hybrid_search(q, semantic_query, total_limit=50)
 
-    # 3. Initial Formatting
+    # 3. Formatting
     results = []
     for p in raw_points:
         results.append({
@@ -208,17 +228,17 @@ async def api_search(
         })
 
     # 4. Boost and Re-rank
-    ranked_results = boost_and_rank(q, results)
+    ranked_results = boost_and_rank(q, results, model_name, include_rerank)
 
     # 5. Pagination
     start = (page - 1) * per_page
     end = start + per_page
     page_results = ranked_results[start:end]
 
-    # 6. Summary (only on page 1 and if requested)
+    # 6. Summary
     summary = ""
     if page == 1 and page_results and include_summary:
-        summary = generate_summary(q, ranked_results)
+        summary = generate_summary(q, ranked_results, model_name)
 
     return {
         "original_query": q,
@@ -230,7 +250,7 @@ async def api_search(
         "per_page": per_page,
         "has_more": end < len(ranked_results),
         "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])],
-        "debug_summary_toggle": include_summary
+        "model": model_name
     }
 
 
