@@ -83,8 +83,14 @@ def main():
         score = res.score
         url = res.payload.get("url")
         text = res.payload.get("text")
+        title = res.payload.get("title", "")
+        section = res.payload.get("section_heading", "")
 
         print(f"{i + 1}. [Score: {score:.4f}] {url}")
+        if title:
+            print(f"   Titel: {title}")
+        if section:
+            print(f"   Abschnitt: {section}")
         print(f"   Inhalt: {text[:200]}...")
         print("-" * 40)
 

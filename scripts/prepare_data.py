@@ -26,6 +26,62 @@ def chunk_text(text, chunk_size=1000, chunk_overlap=200):
     return splitter.split_text(text)
 
 
+def build_section_chunks(record):
+    """Create chunks aligned with page sections whenever available."""
+    title = (record.get("title") or "").strip()
+    h1 = (record.get("h1") or "").strip()
+    sections = record.get("sections") or []
+    url = record.get("url")
+
+    chunk_records = []
+
+    if sections:
+        for idx, section in enumerate(sections):
+            heading = (section.get("heading") or "Allgemein").strip()
+            section_text = (section.get("text") or "").strip()
+            if not section_text:
+                continue
+
+            section_chunks = chunk_text(section_text, chunk_size=800, chunk_overlap=120)
+            for cidx, chunk in enumerate(section_chunks):
+                enriched_text = "\n".join(part for part in [title, h1, heading, chunk] if part)
+                chunk_records.append(
+                    {
+                        "url": url,
+                        "text": enriched_text,
+                        "section_heading": heading,
+                        "title": title,
+                        "h1": h1,
+                        "section_index": idx,
+                        "chunk_index": cidx,
+                        "used_js_render": bool(record.get("used_js_render", False)),
+                    }
+                )
+
+    if not chunk_records:
+        content = (record.get("content") or "").strip()
+        if not content:
+            return []
+
+        fallback_chunks = chunk_text(content, chunk_size=900, chunk_overlap=150)
+        for cidx, chunk in enumerate(fallback_chunks):
+            enriched_text = "\n".join(part for part in [title, h1, chunk] if part)
+            chunk_records.append(
+                {
+                    "url": url,
+                    "text": enriched_text,
+                    "section_heading": "Allgemein",
+                    "title": title,
+                    "h1": h1,
+                    "section_index": 0,
+                    "chunk_index": cidx,
+                    "used_js_render": bool(record.get("used_js_render", False)),
+                }
+            )
+
+    return chunk_records
+
+
 def main():
     print(f"Loading data from {INPUT_FILE}...")
     raw_data = load_data(INPUT_FILE)
@@ -37,26 +93,15 @@ def main():
 
     print("Processing and embedding chunks...")
     for i, record in enumerate(raw_data):
-        url = record["url"]
-        content = record["content"]
-
-        # Split content into chunks
-        chunks = chunk_text(content)
-
-        if not chunks:
+        chunk_records = build_section_chunks(record)
+        if not chunk_records:
             continue
 
-        # Generate embeddings for all chunks in a batch for efficiency
-        embeddings = model.encode(chunks)
+        chunk_texts = [item["text"] for item in chunk_records]
+        embeddings = model.encode(chunk_texts)
 
-        for chunk, embedding in zip(chunks, embeddings):
-            processed_records.append(
-                {
-                    "url": url,
-                    "text": chunk,
-                    "embedding": embedding.tolist(),  # Convert numpy array to list for JSON serialization
-                }
-            )
+        for item, embedding in zip(chunk_records, embeddings):
+            processed_records.append({**item, "embedding": embedding.tolist()})
 
         if (i + 1) % 50 == 0:
             print(f"Processed {i + 1}/{len(raw_data)} documents...")

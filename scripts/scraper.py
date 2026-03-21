@@ -1,11 +1,17 @@
 import json
 import re
 import time
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+try:
+    from playwright.sync_api import sync_playwright
+except Exception:
+    sync_playwright = None
 
 # Sitemaps provided by the user
 SITEMAPS = [
@@ -17,6 +23,74 @@ ROOT_SITEMAP_INDEX = "https://www.hs-aalen.de/sitemap.xml"
 
 OUTPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data.jsonl"
 REPORT_FILE = "/Users/merluee/Desktop/suchemacschine/scrape_report.json"
+MIN_CONTENT_LENGTH = 350
+
+
+class BrowserRenderer:
+    """Optional Playwright renderer for pages with JS-dependent content."""
+
+    def __init__(self):
+        self.playwright = None
+        self.browser = None
+
+    @property
+    def available(self) -> bool:
+        return sync_playwright is not None
+
+    def start(self):
+        if not self.available or self.browser:
+            return
+        self.playwright = sync_playwright().start()
+        self.browser = self.playwright.chromium.launch(headless=True)
+
+    def render_html(self, url: str) -> Optional[str]:
+        if not self.available:
+            return None
+        try:
+            self.start()
+            context = self.browser.new_context(
+                user_agent="HSAalenSearchBot/1.2 (+https://www.hs-aalen.de)",
+                locale="de-DE",
+            )
+            page = context.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(800)
+            page.wait_for_load_state("networkidle", timeout=10000)
+
+            # Expand common collapsible elements to include hidden sub-content.
+            page.evaluate(
+                """
+                () => {
+                  document.querySelectorAll('details').forEach((d) => d.open = true);
+                  const selectors = [
+                    'button[aria-expanded="false"]',
+                    '[role="button"][aria-expanded="false"]',
+                    '.accordion button',
+                    '.tab button'
+                  ];
+                  selectors.forEach((sel) => {
+                    document.querySelectorAll(sel).forEach((el) => {
+                      try { el.click(); } catch (_) {}
+                    });
+                  });
+                }
+                """
+            )
+            page.wait_for_timeout(500)
+            html = page.content()
+            context.close()
+            return html
+        except Exception as e:
+            print(f"JS rendering failed for {url}: {e}")
+            return None
+
+    def close(self):
+        if self.browser:
+            self.browser.close()
+            self.browser = None
+        if self.playwright:
+            self.playwright.stop()
+            self.playwright = None
 
 
 def create_session():
@@ -71,40 +145,121 @@ def get_urls_from_sitemap(session, sitemap_url):
         return []
 
 
-def extract_content(session, url):
+def clean_text(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "")).strip()
+
+
+def extract_sections(main_container):
+    sections = []
+    current_heading = "Allgemein"
+    current_text_parts = []
+
+    for element in main_container.find_all(["h1", "h2", "h3", "p", "li"], recursive=True):
+        text = clean_text(element.get_text(separator=" ", strip=True))
+        if not text:
+            continue
+
+        if element.name in {"h1", "h2", "h3"}:
+            if current_text_parts:
+                sections.append(
+                    {
+                        "heading": current_heading,
+                        "text": clean_text(" ".join(current_text_parts)),
+                    }
+                )
+                current_text_parts = []
+            current_heading = text
+        else:
+            current_text_parts.append(text)
+
+    if current_text_parts:
+        sections.append({"heading": current_heading, "text": clean_text(" ".join(current_text_parts))})
+
+    deduped_sections = []
+    seen = set()
+    for section in sections:
+        key = (section["heading"], section["text"])
+        if key in seen or len(section["text"]) < 20:
+            continue
+        seen.add(key)
+        deduped_sections.append(section)
+    return deduped_sections
+
+
+def extract_structured_from_html(html: str, url: str):
+    soup = BeautifulSoup(html, "html.parser")
+
+    title = clean_text(soup.title.get_text()) if soup.title else ""
+
+    for element in soup(["script", "style", "nav", "footer", "form", "aside", "noscript", "iframe"]):
+        element.decompose()
+
+    main_container = soup.find("main") or soup.find("article") or soup.find(id=re.compile(r"content|main", re.I))
+    if not main_container:
+        main_container = soup.body
+
+    if not main_container:
+        return {
+            "url": url,
+            "title": title,
+            "h1": "",
+            "headings": [],
+            "sections": [],
+            "content": "",
+        }
+
+    exclude_patterns = r"breadcrumb|share|social|nav|menu|pagination|button|modal"
+    for element in main_container.find_all(class_=re.compile(exclude_patterns, re.I)):
+        element.decompose()
+
+    h1_tag = main_container.find("h1")
+    h1 = clean_text(h1_tag.get_text()) if h1_tag else ""
+
+    sections = extract_sections(main_container)
+    content = clean_text(" ".join(section["text"] for section in sections))
+    headings = [section["heading"] for section in sections if section.get("heading")]
+
+    return {
+        "url": url,
+        "title": title,
+        "h1": h1,
+        "headings": headings,
+        "sections": sections,
+        "content": content,
+    }
+
+
+def extract_content(session, renderer: BrowserRenderer, url):
     print(f"Scraping content from: {url}")
     try:
         response = session.get(url, timeout=(10, 35))
         response.raise_for_status()
-        soup = BeautifulSoup(response.content, "html.parser")
+        static_data = extract_structured_from_html(response.text, url)
+        static_len = len(static_data.get("content", ""))
 
-        # Remove obvious non-content elements site-wide first
-        for element in soup(["script", "style", "nav", "footer", "form", "aside", "noscript"]):
-            element.decompose()
+        used_js = False
+        js_attempted = False
+        rendered_len = static_len
+        final_data = static_data
 
-        # Find the most likely "main" container
-        # We look for <main>, article tags, or IDs like 'content', 'main'
-        main_container = soup.find("main") or soup.find("article") or soup.find(id=re.compile(r"content|main", re.I))
+        # Fallback to JS rendering when static HTML is suspiciously short.
+        if renderer.available and static_len < MIN_CONTENT_LENGTH:
+            js_attempted = True
+            rendered_html = renderer.render_html(url)
+            if rendered_html:
+                rendered_data = extract_structured_from_html(rendered_html, url)
+                rendered_len = len(rendered_data.get("content", ""))
+                if rendered_len > static_len:
+                    final_data = rendered_data
+                    used_js = True
 
-        if not main_container:
-            # Fallback to body but with heavy cleaning
-            main_container = soup.body
-
-        if main_container:
-            # Remove anything that looks like a menu, breadcrumb, or share widget
-            exclude_patterns = r"breadcrumb|share|social|nav|menu|pagination|button|modal"
-            for element in main_container.find_all(class_=re.compile(exclude_patterns, re.I)):
-                element.decompose()
-
-            # Extract plain text with a separator to avoid word merging
-            text = main_container.get_text(separator=" ", strip=True)
-        else:
-            text = ""
-
-        # Final text cleaning: remove multiple spaces, newlines, and non-printable characters
-        text = re.sub(r"\s+", " ", text).strip()
-
-        return text
+        final_data["used_js_render"] = used_js
+        final_data["js_render_attempted"] = js_attempted
+        final_data["static_content_length"] = static_len
+        final_data["rendered_content_length"] = rendered_len
+        final_data["content_gain_from_js"] = max(0, rendered_len - static_len)
+        final_data["content_length"] = len(final_data.get("content", ""))
+        return final_data
     except Exception as e:
         print(f"Error scraping {url}: {e}")
         return None
@@ -112,6 +267,7 @@ def extract_content(session, url):
 
 def main():
     session = create_session()
+    renderer = BrowserRenderer()
 
     discovered_sitemaps = discover_sitemaps(session)
     sitemap_list = discovered_sitemaps if discovered_sitemaps else SITEMAPS
@@ -127,16 +283,27 @@ def main():
     failed_urls = []
     empty_content_urls = []
     saved_records = 0
+    js_render_attempted_count = 0
+    js_render_used_count = 0
+    js_positive_gain_count = 0
+    total_content_gain = 0
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         for i, url in enumerate(unique_urls):
-            content = extract_content(session, url)
-            if content:
-                # Store as a JSON object on each line
-                record = {"url": url, "content": content}
+            extracted = extract_content(session, renderer, url)
+            if extracted and extracted.get("content"):
+                record = extracted
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
                 saved_records += 1
-            elif content == "":
+                if record.get("js_render_attempted"):
+                    js_render_attempted_count += 1
+                if record.get("used_js_render"):
+                    js_render_used_count += 1
+                gain = int(record.get("content_gain_from_js", 0) or 0)
+                if gain > 0:
+                    js_positive_gain_count += 1
+                    total_content_gain += gain
+            elif extracted is not None and extracted.get("content", "") == "":
                 empty_content_urls.append(url)
             else:
                 failed_urls.append(url)
@@ -148,6 +315,8 @@ def main():
             # Small delay to be nice to the server
             time.sleep(0.1)
 
+    renderer.close()
+
     report = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "sitemaps_used": sitemap_list,
@@ -156,6 +325,10 @@ def main():
         "saved_records": saved_records,
         "failed_count": len(failed_urls),
         "empty_content_count": len(empty_content_urls),
+        "js_render_attempted_count": js_render_attempted_count,
+        "js_render_used_count": js_render_used_count,
+        "js_positive_gain_count": js_positive_gain_count,
+        "total_content_gain": total_content_gain,
         "failed_urls": failed_urls,
         "empty_content_urls": empty_content_urls,
     }

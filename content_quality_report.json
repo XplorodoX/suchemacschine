@@ -1,0 +1,1226 @@
+{
+  "timestamp": "2026-03-21T22:17:56.632671",
+  "thresholds": {
+    "min_content_length": 350,
+    "min_sections": 1,
+    "min_headings": 1,
+    "high_js_gain": 500
+  },
+  "summary": {
+    "total_records": 786,
+    "flagged_count": 786,
+    "high_severity_count": 786,
+    "medium_severity_count": 0,
+    "js_attempted_count": 0,
+    "js_used_count": 0,
+    "positive_js_gain_count": 0,
+    "avg_js_gain_positive": 0
+  },
+  "flagged_by_url_type": {
+    "page": {
+      "count": 481,
+      "flagged": 481
+    },
+    "news": {
+      "count": 219,
+      "flagged": 219
+    },
+    "event": {
+      "count": 79,
+      "flagged": 79
+    },
+    "institution": {
+      "count": 7,
+      "flagged": 7
+    }
+  },
+  "top_issues": [
+    {
+      "url": "https://www.hs-aalen.de/aktuelles/veranstaltungen/veranstaltung/landesweiter-studieninfotag/",
+      "url_type": "event",
+      "severity": "high",
+      "content_length": 216,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 216,
+      "rendered_content_length": 216,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:216",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/aktuelles/veranstaltungen/veranstaltung/default-1967d25e052f55391fde95e488dcaf81/",
+      "url_type": "event",
+      "severity": "high",
+      "content_length": 264,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 264,
+      "rendered_content_length": 264,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:264",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/aktuelles/veranstaltungen/veranstaltung/default-fd8bcd7f1c56fa4a5b2f7da8e3143e16/",
+      "url_type": "event",
+      "severity": "high",
+      "content_length": 264,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 264,
+      "rendered_content_length": 264,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:264",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/daniela-maier/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 276,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 276,
+      "rendered_content_length": 276,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:276",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/daniel-gartner/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 278,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 278,
+      "rendered_content_length": 278,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:278",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/andrea-toulouse/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 280,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 280,
+      "rendered_content_length": 280,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:280",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/frank-richter/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 289,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 289,
+      "rendered_content_length": 289,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:289",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/markus-weber/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 300,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 300,
+      "rendered_content_length": 300,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:300",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/peter-gentsch/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 300,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 300,
+      "rendered_content_length": 300,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:300",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/eugen-may/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 308,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 308,
+      "rendered_content_length": 308,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:308",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/andreas-holschbach/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 309,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 309,
+      "rendered_content_length": 309,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:309",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/thomas-weber/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 309,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 309,
+      "rendered_content_length": 309,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:309",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/bjoern-wagner/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 310,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 310,
+      "rendered_content_length": 310,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:310",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/gerold-frick/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 310,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 310,
+      "rendered_content_length": 310,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:310",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/henning-schon/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 311,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 311,
+      "rendered_content_length": 311,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:311",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/klaus-maier/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 311,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 311,
+      "rendered_content_length": 311,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:311",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/peter-zipfl/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 311,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 311,
+      "rendered_content_length": 311,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:311",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/torsten-stein/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 311,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 311,
+      "rendered_content_length": 311,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:311",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/christian-uhl/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 312,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 312,
+      "rendered_content_length": 312,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:312",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/sara-sommer/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 312,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 312,
+      "rendered_content_length": 312,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:312",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/egbert-triebel/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 313,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 313,
+      "rendered_content_length": 313,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:313",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/marc-falko-schrader/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 313,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 313,
+      "rendered_content_length": 313,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:313",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/thomas-weidner/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 313,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 313,
+      "rendered_content_length": 313,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:313",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/sarah-gentner-roehrer/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 314,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 314,
+      "rendered_content_length": 314,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:314",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/arndt-borgmeier/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 315,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 315,
+      "rendered_content_length": 315,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:315",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/florian-wegmann/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 315,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 315,
+      "rendered_content_length": 315,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:315",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/michael-glunk/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 315,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 315,
+      "rendered_content_length": 315,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:315",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/norbert-schnell/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 315,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 315,
+      "rendered_content_length": 315,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:315",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/roland-hellmann/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 315,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 315,
+      "rendered_content_length": 315,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:315",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/ronald-schaefer/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 315,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 315,
+      "rendered_content_length": 315,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:315",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/eduard-depner/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 316,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 316,
+      "rendered_content_length": 316,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:316",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/tillmann-koerner/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 316,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 316,
+      "rendered_content_length": 316,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:316",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/saskia-stueven-kazi/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 317,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 317,
+      "rendered_content_length": 317,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:317",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/walter-gillner/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 317,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 317,
+      "rendered_content_length": 317,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:317",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/cecile-rosenow/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 318,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 318,
+      "rendered_content_length": 318,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:318",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/rainer-ulrich-schillig/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 318,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 318,
+      "rendered_content_length": 318,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:318",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/dominik-mueller/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 319,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 319,
+      "rendered_content_length": 319,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:319",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/winfried-bantel/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 319,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 319,
+      "rendered_content_length": 319,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:319",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/rene-niethammer/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 320,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 320,
+      "rendered_content_length": 320,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:320",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/christina-ravens/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 321,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 321,
+      "rendered_content_length": 321,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:321",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/fabian-holzwarth/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 321,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 321,
+      "rendered_content_length": 321,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:321",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/jae-aileen-chung/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 322,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 322,
+      "rendered_content_length": 322,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:322",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/thomas-kirschkamp/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 323,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 323,
+      "rendered_content_length": 323,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:323",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/aktuelles/veranstaltungen/veranstaltung/default-3cb6b765b59070b9677da474193052d7/",
+      "url_type": "event",
+      "severity": "high",
+      "content_length": 324,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 324,
+      "rendered_content_length": 324,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:324",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/karl-christof-renz/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 326,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 326,
+      "rendered_content_length": 326,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:326",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/thorsten-stegmaier/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 326,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 326,
+      "rendered_content_length": 326,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:326",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/ralph-heinsohn/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 339,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 339,
+      "rendered_content_length": 339,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "short_content:339",
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/karsten-wendland/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 351,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 351,
+      "rendered_content_length": 351,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/christian-heinlein/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 360,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 360,
+      "rendered_content_length": 360,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/ausschreibungen/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 406,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 406,
+      "rendered_content_length": 406,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/aktuelles/veranstaltungen/veranstaltung/open-campus/",
+      "url_type": "event",
+      "severity": "high",
+      "content_length": 412,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 412,
+      "rendered_content_length": 412,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/abteilungen-einrichtungen/studentische-abteilung/raummanagement/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 482,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 482,
+      "rendered_content_length": 482,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/abteilungen-einrichtungen/mensa/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 500,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 500,
+      "rendered_content_length": 500,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/annette-limberger/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 523,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 523,
+      "rendered_content_length": 523,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/christian-koot/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 523,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 523,
+      "rendered_content_length": 523,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/juergen-bischof/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 543,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 543,
+      "rendered_content_length": 543,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/aktuelles/veranstaltungen/veranstaltung/after-work-out-bewegt-in-den-feierabend/",
+      "url_type": "event",
+      "severity": "high",
+      "content_length": 546,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 546,
+      "rendered_content_length": 546,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/informationen-fuer/forschende/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 567,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 567,
+      "rendered_content_length": 567,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/bianca-kuehnle/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 572,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 572,
+      "rendered_content_length": 572,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    },
+    {
+      "url": "https://www.hs-aalen.de/person/martin-heckmann/",
+      "url_type": "page",
+      "severity": "high",
+      "content_length": 595,
+      "sections_count": 0,
+      "headings_count": 0,
+      "used_js_render": false,
+      "js_render_attempted": false,
+      "static_content_length": 595,
+      "rendered_content_length": 595,
+      "content_gain_from_js": 0,
+      "reasons": [
+        "few_sections:0",
+        "few_headings:0",
+        "missing_title",
+        "missing_h1"
+      ]
+    }
+  ]
+}

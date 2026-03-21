@@ -27,11 +27,10 @@ def main():
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         for i, line in tqdm.tqdm(enumerate(f)):
             record = json.loads(line)
-            url = record["url"]
-            text = record["text"]
             embedding = record["embedding"]
+            payload = {k: v for k, v in record.items() if k != "embedding"}
 
-            points.append(PointStruct(id=i, vector=embedding, payload={"url": url, "text": text}))
+            points.append(PointStruct(id=i, vector=embedding, payload=payload))
 
             # Batch upload every 1000 points
             if len(points) >= 1000:
