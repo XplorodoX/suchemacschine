@@ -204,40 +204,62 @@ def lexical_relevance(query: str, text: str, url: str) -> float:
 
 
 def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
-    """Hybrid search: merge results from original + expanded query vectors."""
+    """Hybrid search: search both main content and timetable collections."""
     # Encode both queries
     original_vector = model.encode(query).tolist()
     expanded_vector = model.encode(expanded_query).tolist()
 
-    # Search with original query
-    original_results = client.query_points(
-        collection_name=COLLECTION_NAME,
-        query=original_vector,
-        limit=total_limit,
-    ).points
+    all_results = []
+    
+    # Search main collection (HTML content)
+    try:
+        # Search with original query
+        original_results = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=original_vector,
+            limit=int(total_limit * 0.7),  # 70% from main collection
+        ).points
 
-    # Search with expanded query
-    expanded_results = client.query_points(
-        collection_name=COLLECTION_NAME,
-        query=expanded_vector,
-        limit=total_limit,
-    ).points
+        # Search with expanded query
+        expanded_results = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=expanded_vector,
+            limit=int(total_limit * 0.7),
+        ).points
 
-    # Merge and deduplicate by URL+text, keeping the best score
-    seen = {}
-    for res in original_results:
-        key = (res.payload.get("url", ""), res.payload.get("text", "")[:100])
-        if key not in seen or res.score > seen[key].score:
-            seen[key] = res
+        # Merge main collection results
+        seen_main = {}
+        for res in original_results:
+            key = (res.payload.get("url", ""), res.payload.get("text", "")[:100])
+            if key not in seen_main or res.score > seen_main[key].score:
+                seen_main[key] = res
 
-    for res in expanded_results:
-        key = (res.payload.get("url", ""), res.payload.get("text", "")[:100])
-        # Slight penalty for expanded-only results (original intent matters more)
-        if key not in seen or res.score * 0.95 > seen[key].score:
-            seen[key] = res
+        for res in expanded_results:
+            key = (res.payload.get("url", ""), res.payload.get("text", "")[:100])
+            # Slight penalty for expanded-only results
+            if key not in seen_main or res.score * 0.95 > seen_main[key].score:
+                seen_main[key] = res
 
-    # Sort by score descending
-    merged = sorted(seen.values(), key=lambda x: x.score, reverse=True)
+        all_results.extend(seen_main.values())
+        print(f"DEBUG: Main collection returned {len(seen_main)} results")
+    except Exception as e:
+        print(f"Error searching main collection: {e}")
+    
+    # Search timetable collection (Starplan)
+    try:
+        timetable_results = client.query_points(
+            collection_name="starplan_timetable",
+            query=original_vector,
+            limit=int(total_limit * 0.3),  # 30% from timetable
+        ).points
+        print(f"DEBUG: Timetable collection returned {len(timetable_results)} results")
+        all_results.extend(timetable_results)
+    except Exception as e:
+        print(f"WARNING: Timetable collection not available: {e}")
+    
+    # Final sort by score descending and limit
+    merged = sorted(all_results, key=lambda x: x.score, reverse=True)
+    print(f"DEBUG: Total merged results: {len(merged)} (limit: {total_limit})")
     return merged[:total_limit]
 
 
@@ -271,10 +293,11 @@ def boost_and_rank(
         res["lexical_score"] = float(lexical)
 
     if strict_match:
+        # Don't apply strict matching for timetable results (they have different data structure)
         results = [
             r
             for r in results
-            if strict_match_passes(query, r.get("text", ""), r.get("url", ""))
+            if r.get("type") == "timetable" or strict_match_passes(query, r.get("text", ""), r.get("url", ""))
         ]
 
     # Filter weak matches so summary generation does not hallucinate from irrelevant sources.
@@ -517,10 +540,23 @@ async def api_search(
         # C. Formatting
         results = []
         for p in raw_points:
+            # Handle both HTML content and Timetable data
+            is_timetable = p.payload.get('source') == 'starplan_timetable'
+            
+            # For timetable entries, create a formatted text
+            if is_timetable:
+                formatted_text = f"{p.payload.get('program', '')} - {p.payload.get('day', '')} {p.payload.get('time', '')} - {p.payload.get('lecture_info', '')[:100]}"
+            else:
+                formatted_text = p.payload.get("text", "")
+            
             results.append({
                 "score": float(p.score),
                 "url": p.payload.get("url"),
-                "text": p.payload.get("text"),
+                "text": formatted_text,
+                "program": p.payload.get("program"),  # For timetable
+                "day": p.payload.get("day"),  # For timetable
+                "time": p.payload.get("time"),  # For timetable
+                "type": p.payload.get("type", "webpage"),  # "timetable" or "webpage"
             })
 
         # D. Boost and Re-rank

@@ -1,0 +1,3887 @@
+{
+  "programs": [
+    {
+      "name": "AA",
+      "id": "1630",
+      "type": "program"
+    },
+    {
+      "name": "ABC",
+      "id": "9",
+      "type": "program"
+    },
+    {
+      "name": "AH",
+      "id": "1385",
+      "type": "program"
+    },
+    {
+      "name": "AI",
+      "id": "1742",
+      "type": "program"
+    },
+    {
+      "name": "AMM",
+      "id": "3",
+      "type": "program"
+    },
+    {
+      "name": "AO",
+      "id": "19",
+      "type": "program"
+    },
+    {
+      "name": "APH",
+      "id": "12",
+      "type": "program"
+    },
+    {
+      "name": "B",
+      "id": "21",
+      "type": "program"
+    },
+    {
+      "name": "BAN",
+      "id": "1473",
+      "type": "program"
+    },
+    {
+      "name": "BPS",
+      "id": "1714",
+      "type": "program"
+    },
+    {
+      "name": "BPW",
+      "id": "1489",
+      "type": "program"
+    },
+    {
+      "name": "CSC",
+      "id": "49",
+      "type": "program"
+    },
+    {
+      "name": "Chemie",
+      "id": "22",
+      "type": "program"
+    },
+    {
+      "name": "DHM",
+      "id": "26",
+      "type": "program"
+    },
+    {
+      "name": "DPD",
+      "id": "1593",
+      "type": "program"
+    },
+    {
+      "name": "DS",
+      "id": "24",
+      "type": "program"
+    },
+    {
+      "name": "DSB",
+      "id": "23",
+      "type": "program"
+    },
+    {
+      "name": "EMC",
+      "id": "1773",
+      "type": "program"
+    },
+    {
+      "name": "EME",
+      "id": "1765",
+      "type": "program"
+    },
+    {
+      "name": "ET",
+      "id": "30",
+      "type": "program"
+    },
+    {
+      "name": "ETI",
+      "id": "76",
+      "type": "program"
+    },
+    {
+      "name": "F",
+      "id": "61",
+      "type": "program"
+    },
+    {
+      "name": "FTC",
+      "id": "75",
+      "type": "program"
+    },
+    {
+      "name": "FTK",
+      "id": "77",
+      "type": "program"
+    },
+    {
+      "name": "FUX",
+      "id": "80",
+      "type": "program"
+    },
+    {
+      "name": "GBA",
+      "id": "32",
+      "type": "program"
+    },
+    {
+      "name": "GM",
+      "id": "33",
+      "type": "program"
+    },
+    {
+      "name": "GMA",
+      "id": "42",
+      "type": "program"
+    },
+    {
+      "name": "Graduate Campus",
+      "id": "1413",
+      "type": "program"
+    },
+    {
+      "name": "Graduate School",
+      "id": "1414",
+      "type": "program"
+    },
+    {
+      "name": "HA",
+      "id": "36",
+      "type": "program"
+    },
+    {
+      "name": "HCD",
+      "id": "1761",
+      "type": "program"
+    },
+    {
+      "name": "HLE",
+      "id": "1672",
+      "type": "program"
+    },
+    {
+      "name": "HLF",
+      "id": "1673",
+      "type": "program"
+    },
+    {
+      "name": "HTM",
+      "id": "1505",
+      "type": "program"
+    },
+    {
+      "name": "IBW",
+      "id": "37",
+      "type": "program"
+    },
+    {
+      "name": "ID",
+      "id": "1611",
+      "type": "program"
+    },
+    {
+      "name": "IDM",
+      "id": "38",
+      "type": "program"
+    },
+    {
+      "name": "IN",
+      "id": "41",
+      "type": "program"
+    },
+    {
+      "name": "IST",
+      "id": "51",
+      "type": "program"
+    },
+    {
+      "name": "IoT",
+      "id": "48",
+      "type": "program"
+    },
+    {
+      "name": "K",
+      "id": "50",
+      "type": "program"
+    },
+    {
+      "name": "LBM",
+      "id": "52",
+      "type": "program"
+    },
+    {
+      "name": "M",
+      "id": "7",
+      "type": "program"
+    },
+    {
+      "name": "MAI",
+      "id": "47",
+      "type": "program"
+    },
+    {
+      "name": "MBD",
+      "id": "20",
+      "type": "program"
+    },
+    {
+      "name": "MBL",
+      "id": "1756",
+      "type": "program"
+    },
+    {
+      "name": "MBP",
+      "id": "59",
+      "type": "program"
+    },
+    {
+      "name": "MBW",
+      "id": "60",
+      "type": "program"
+    },
+    {
+      "name": "MBX",
+      "id": "1609",
+      "type": "program"
+    },
+    {
+      "name": "MDP",
+      "id": "25",
+      "type": "program"
+    },
+    {
+      "name": "MF",
+      "id": "1038",
+      "type": "program"
+    },
+    {
+      "name": "MH",
+      "id": "35",
+      "type": "program"
+    },
+    {
+      "name": "MIN",
+      "id": "40",
+      "type": "program"
+    },
+    {
+      "name": "MLD",
+      "id": "53",
+      "type": "program"
+    },
+    {
+      "name": "MM",
+      "id": "65",
+      "type": "program"
+    },
+    {
+      "name": "MN",
+      "id": "1703",
+      "type": "program"
+    },
+    {
+      "name": "MP",
+      "id": "6",
+      "type": "program"
+    },
+    {
+      "name": "MRE",
+      "id": "1802",
+      "type": "program"
+    },
+    {
+      "name": "MRM",
+      "id": "62",
+      "type": "program"
+    },
+    {
+      "name": "MSD",
+      "id": "5",
+      "type": "program"
+    },
+    {
+      "name": "MTM",
+      "id": "63",
+      "type": "program"
+    },
+    {
+      "name": "OE",
+      "id": "67",
+      "type": "program"
+    },
+    {
+      "name": "OMM",
+      "id": "10",
+      "type": "program"
+    },
+    {
+      "name": "OPT",
+      "id": "1635",
+      "type": "program"
+    },
+    {
+      "name": "OS",
+      "id": "68",
+      "type": "program"
+    },
+    {
+      "name": "PA",
+      "id": "1604",
+      "type": "program"
+    },
+    {
+      "name": "PE",
+      "id": "57",
+      "type": "program"
+    },
+    {
+      "name": "PEF",
+      "id": "69",
+      "type": "program"
+    },
+    {
+      "name": "PEM",
+      "id": "1709",
+      "type": "program"
+    },
+    {
+      "name": "PH",
+      "id": "70",
+      "type": "program"
+    },
+    {
+      "name": "PTC",
+      "id": "72",
+      "type": "program"
+    },
+    {
+      "name": "Semesterplan",
+      "id": "1591",
+      "type": "program"
+    },
+    {
+      "name": "Sprachen",
+      "id": "293",
+      "type": "program"
+    },
+    {
+      "name": "Stud. Generale",
+      "id": "1465",
+      "type": "program"
+    },
+    {
+      "name": "TME",
+      "id": "78",
+      "type": "program"
+    },
+    {
+      "name": "TMP",
+      "id": "79",
+      "type": "program"
+    },
+    {
+      "name": "UX",
+      "id": "1619",
+      "type": "program"
+    },
+    {
+      "name": "VI",
+      "id": "43",
+      "type": "program"
+    },
+    {
+      "name": "VMG",
+      "id": "56",
+      "type": "program"
+    },
+    {
+      "name": "VMM",
+      "id": "54",
+      "type": "program"
+    },
+    {
+      "name": "VSB",
+      "id": "81",
+      "type": "program"
+    },
+    {
+      "name": "VV",
+      "id": "66",
+      "type": "program"
+    },
+    {
+      "name": "W",
+      "id": "82",
+      "type": "program"
+    },
+    {
+      "name": "WI",
+      "id": "85",
+      "type": "program"
+    },
+    {
+      "name": "WIB",
+      "id": "83",
+      "type": "program"
+    },
+    {
+      "name": "WIC",
+      "id": "84",
+      "type": "program"
+    },
+    {
+      "name": "WIP",
+      "id": "86",
+      "type": "program"
+    },
+    {
+      "name": "WR",
+      "id": "1781",
+      "type": "program"
+    }
+  ],
+  "timetables": {
+    "1630": {
+      "program_id": "1630",
+      "program_name": "AA",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "Montag",
+          "program": "AA"
+        },
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "16.03.2026",
+          "program": "AA"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "Dienstag",
+          "program": "AA"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "17.03.2026",
+          "program": "AA"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "Mittwoch",
+          "program": "AA"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "18.03.2026",
+          "program": "AA"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "Donnerstag",
+          "program": "AA"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "19.03.2026",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Freitag",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "20.03.2026",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "G4 -1.02/3",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Technische Akustik-Labor (34-53206)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "E. Noorbakhsh",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "AH -1.02 (UG), Canvas",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Biz.a.Tech.Eng./Inter.sk. (34-53209)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "J. Geiger",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G4 2.14, Canvas",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Hörsysteme (34-53202)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "S. Kreikemeier",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "G4 2.14",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Praktikum Hörsysteme (34-53203) Anpassräume",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "S. Kreikemeier, E. Noorbakhsh",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "231 (Bunker), Canvas",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Projekt-/Prozessmanag. (34-53207)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "A. Stumper",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:45-13:00",
+          "info": "273",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:45-13:00",
+          "info": "Biz.a.Tech.Eng./Inter.sk. (34-53209)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:45-13:00",
+          "info": "T. Beament",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:45-13:00",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "G2 0.01",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Digit. Signalverarbeitung (34-53201)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "S. Ludwig",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "G2 2.01",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Digit. Signalverarbeitung (34-53201)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "S. Ludwig",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G4-Aquarium",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Technische Akustik (34-53205)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "J. Nolting",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G4-Aquarium",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Technische Akustik (34-53205)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "J. Nolting",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "G2 0.24",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Grundlagen Statistik (34-53208)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "A. Stumper",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "G2 0.01",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Grundlagen Statistik (34-53208)",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "A. Stumper",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "AA S2",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Letzte Änderung: 18.03.2026 10:22",
+          "program": "AA"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "AA"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "9": {
+      "program_id": "9",
+      "program_name": "ABC",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "18:00",
+          "info": "Montag",
+          "program": "ABC"
+        },
+        {
+          "day": "Montag",
+          "time": "18:00",
+          "info": "16.03.2026",
+          "program": "ABC"
+        },
+        {
+          "day": "Dienstag",
+          "time": "18:00",
+          "info": "Dienstag",
+          "program": "ABC"
+        },
+        {
+          "day": "Dienstag",
+          "time": "18:00",
+          "info": "17.03.2026",
+          "program": "ABC"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "18:00",
+          "info": "Mittwoch",
+          "program": "ABC"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "18:00",
+          "info": "18.03.2026",
+          "program": "ABC"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "18:00",
+          "info": "Donnerstag",
+          "program": "ABC"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "18:00",
+          "info": "19.03.2026",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "Freitag",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "20.03.2026",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "AH 0.01 (EG)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "GDCH Vorträge",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "N. Schaschke",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "Chemometrie (31-31108)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "D. Flottmann",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Seminar Analytik (31-31106)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "C. Neusüß",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Massenspektromerie (31-31102)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "C. Neusüß",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "129 (Bunker)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Chemometrie (31-31108) Bioinformatik",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "D. Flottmann",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Instrum. Analytische Chem (31-31104)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "C. Neusüß",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Massenspektromerie (31-31102)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "C. Neusüß",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "129 (Bunker)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Chemometrie (31-31108) Bioinformatik",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "D. Flottmann",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "111",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Umweltanalytik (31-31105), Biopharm. Analytik (31-31107)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "C. Neusüß",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "NMR Spektroskpie (31-31103)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "H. Junker",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "111",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Chemometrie (31-31108)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "D. Flottmann",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Nukleinsäureanalytik (31-31114)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "N. Schnell",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "114",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Nukleinsäureanalytik (31-31114)",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "N. Schnell",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "ABC S1_2",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Letzte Änderung: 05.03.2026 11:42",
+          "program": "ABC"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "ABC"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "1385": {
+      "program_id": "1385",
+      "program_name": "AH",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "Montag",
+          "program": "AH"
+        },
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "16.03.2026",
+          "program": "AH"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "Dienstag",
+          "program": "AH"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "17.03.2026",
+          "program": "AH"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "Mittwoch",
+          "program": "AH"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "18.03.2026",
+          "program": "AH"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "Donnerstag",
+          "program": "AH"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "19.03.2026",
+          "program": "AH"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Freitag",
+          "program": "AH"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "20.03.2026",
+          "program": "AH"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "AH"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "1742": {
+      "program_id": "1742",
+      "program_name": "AI",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "20:00",
+          "info": "Montag",
+          "program": "AI"
+        },
+        {
+          "day": "Montag",
+          "time": "20:00",
+          "info": "16.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Dienstag",
+          "time": "20:00",
+          "info": "Dienstag",
+          "program": "AI"
+        },
+        {
+          "day": "Dienstag",
+          "time": "20:00",
+          "info": "17.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "20:00",
+          "info": "Mittwoch",
+          "program": "AI"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "20:00",
+          "info": "18.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "20:00",
+          "info": "Donnerstag",
+          "program": "AI"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "20:00",
+          "info": "19.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "Freitag",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "20.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "G2 2.01, Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "Grundlagen der Mathematik (35-57101)",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "T. Thierauf",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G2 1.44",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Infoveranstaltung Erstsemestereinführung",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "18.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-14:00",
+          "info": "G2 1.28",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-14:00",
+          "info": "Infoveranstaltung Initial Semester Greeting MLD MIN",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-14:00",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-14:00",
+          "info": "18.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-12:00",
+          "info": "G2 2.26",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-12:00",
+          "info": "Infoveranstaltung Einführung in DPD, ET und ETI und Initial Semester Greeting + Tool Introduction MRE MTE",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-12:00",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-12:00",
+          "info": "18.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:00-13:00",
+          "info": "Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:00-13:00",
+          "info": "Programmieren in Python",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:00-13:00",
+          "info": "A. Aybaci",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:00-13:00",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Programmieren in Python",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "A. Aybaci",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "G2 2.41, Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Analysis (35-57102) Tutorium",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "G2 1.44, Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Strukt. Programmierung (35-57104)",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "M. Hermann",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G2 1.01, Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Analysis (35-57102)",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "C. Heinlein",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G2 0.21, Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Analysis (35-57102)",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "C. Heinlein",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Canvas",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Schlüsselqualifikationen (35-57105)*1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "H. Strauß",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AI S1",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "20.03.2026",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-20:45",
+          "info": "Letzte Änderung: 19.03.2026 14:16",
+          "program": "AI"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-20:45",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "AI"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "3": {
+      "program_id": "3",
+      "program_name": "AMM",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "Montag",
+          "program": "AMM"
+        },
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "16.03.2026",
+          "program": "AMM"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "Dienstag",
+          "program": "AMM"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "17.03.2026",
+          "program": "AMM"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "Mittwoch",
+          "program": "AMM"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "18.03.2026",
+          "program": "AMM"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "Donnerstag",
+          "program": "AMM"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "19.03.2026",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Freitag",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "20.03.2026",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "131 (Bunker)",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Werkzeuge wissensch. Arb. (30-21103)",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "D. Goll",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "AMM S1+2",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "131 (Bunker), Canvas",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Wz. wiss. Arb. in FuE-Pj. (32-21103)",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "D. Goll",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AMM S1+2",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Letzte Änderung: 19.03.2026 10:46",
+          "program": "AMM"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "AMM"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "19": {
+      "program_id": "19",
+      "program_name": "AO",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "20:00",
+          "info": "Montag",
+          "program": "AO"
+        },
+        {
+          "day": "Montag",
+          "time": "20:00",
+          "info": "16.03.2026",
+          "program": "AO"
+        },
+        {
+          "day": "Dienstag",
+          "time": "20:00",
+          "info": "Dienstag",
+          "program": "AO"
+        },
+        {
+          "day": "Dienstag",
+          "time": "20:00",
+          "info": "17.03.2026",
+          "program": "AO"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "20:00",
+          "info": "Mittwoch",
+          "program": "AO"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "20:00",
+          "info": "18.03.2026",
+          "program": "AO"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "20:00",
+          "info": "Donnerstag",
+          "program": "AO"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "20:00",
+          "info": "19.03.2026",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "Freitag",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "20.03.2026",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "G4-Aquarium",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "Opt. Physio & Anatomie 2",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "T. Kirschkamp",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "20:00",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-13:00",
+          "info": "G4 1.02, Canvas",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-13:00",
+          "info": "Augeno. Kundennachmittag (34-77028)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-13:00",
+          "info": "A. Holschbach",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-13:00",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-19:45",
+          "info": "G4 -1.01",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-19:45",
+          "info": "WF: Praktische Informatik (32-77808), WF: Technische Informatik (32-77807)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-19:45",
+          "info": "J. Nolting",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-19:45",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "G4 -1.01",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "WF: Praktische Informatik (32-77808), WF: Technische Informatik (32-77807)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "J. Nolting",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G4 -1.01",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "WF: Praktische Informatik (32-77808), WF: Technische Informatik (32-77807)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "J. Nolting",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "130 (Bunker)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "WF:Spez. Meth. Optometrie (32-77822)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "T. Kirschkamp",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "130 (Bunker)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "WF:Spez. Meth. Optometrie (32-77822)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "T. Kirschkamp",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "G4 1.09",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Opt. Physio & Anatomie 1",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "T. Kirschkamp",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "G4 -1.01",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "Matlab/Python Labor (32-53405)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "J. Nolting",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-13:00",
+          "info": "G4 1.09, Canvas",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-13:00",
+          "info": "Opt. Physio & Anatomie 3",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-13:00",
+          "info": "A. Holschbach",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-13:00",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "G4 2.10",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "Projekt: Management (32-77804)",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "A. Nagl",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "AO S6",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-20:45",
+          "info": "Letzte Änderung: 19.03.2026 09:37",
+          "program": "AO"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-20:45",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "AO"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "12": {
+      "program_id": "12",
+      "program_name": "APH",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "18:00",
+          "info": "Montag",
+          "program": "APH"
+        },
+        {
+          "day": "Montag",
+          "time": "18:00",
+          "info": "16.03.2026",
+          "program": "APH"
+        },
+        {
+          "day": "Dienstag",
+          "time": "18:00",
+          "info": "Dienstag",
+          "program": "APH"
+        },
+        {
+          "day": "Dienstag",
+          "time": "18:00",
+          "info": "17.03.2026",
+          "program": "APH"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "18:00",
+          "info": "Mittwoch",
+          "program": "APH"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "18:00",
+          "info": "18.03.2026",
+          "program": "APH"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "18:00",
+          "info": "Donnerstag",
+          "program": "APH"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "18:00",
+          "info": "19.03.2026",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "Freitag",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "20.03.2026",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "G1 0.21, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "Physical Optics (33-33202)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "A. Heinrich",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "18:00",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G1 0.21, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Physical Optics (33-33202)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "A. Heinrich",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G1 0.06, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Research Module (33-33218)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "A. Harth",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "G1 0.06, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Research Module (33-33218)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "A. Harth",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G1 0.20",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "ZOT Seminar; APH S1+2; 13:15-14:00",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G1 0.06",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Medical Physics (33-33215)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "A. Walter",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G1 0.06",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Medical Physics (33-33215)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "A. Walter",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G1 2.36, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Optical Design Strategies (32-33205)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "H. Frasch, M. Pretorius",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "G1 2.36, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Optical Design Strategies (32-33205)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "H. Frasch, M. Pretorius",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "G1 0.21, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Fourier Optics (33-33211)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "A. Heinrich",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "G1 1.23, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Atom- & Festk-physik (151-44120)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "M. Glunk",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G1 0.21, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Fourier Optics (33-33211)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "A. Heinrich",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G1 1.23, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Atom- & Festk-physik (151-44120)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "M. Glunk",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G1 0.22, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Project/Soft Skills (32-33101)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "A. Harth",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G1 0.22, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Project/Soft Skills (32-33101)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "A. Harth",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "G1 0.21",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Current Topics in Ph. 2 (32-33207)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "A. Walter",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "G1 0.21",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Current Topics in Ph. 2 (32-33207)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "A. Walter",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "G1 0.06, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "Quantum Optics (33-33201)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "A. Harth",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:30-19:00",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "07:55-09:25",
+          "info": "G1 0.06, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "07:55-09:25",
+          "info": "Quantum Optics (33-33201)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "07:55-09:25",
+          "info": "A. Harth",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "07:55-09:25",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "G1 0.21, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Illumination (33-33210)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "J. Eisenmenger, A. Heinrich",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "G1 0.21, Canvas",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Illumination (33-33210)",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "J. Eisenmenger, A. Heinrich",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "APH S1+2",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Letzte Änderung: 06.03.2026 10:49",
+          "program": "APH"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "APH"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "21": {
+      "program_id": "21",
+      "program_name": "B",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "Montag",
+          "program": "B"
+        },
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "16.03.2026",
+          "program": "B"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "Dienstag",
+          "program": "B"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "17.03.2026",
+          "program": "B"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "Mittwoch",
+          "program": "B"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "18.03.2026",
+          "program": "B"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "Donnerstag",
+          "program": "B"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "19.03.2026",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Freitag",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "20.03.2026",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "WIN 5.04",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Semestereinführung",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "E. May",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "B S1",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "18.03.2026",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "211, Canvas",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Englisch (33-51108)",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "C. Battista",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "B S1",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "AH 1.01 (OG)",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Wirtschaftsmathematik (33-51101) Tutorium",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "B S1",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Letzte Änderung: 05.03.2026 13:08",
+          "program": "B"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "B"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "1473": {
+      "program_id": "1473",
+      "program_name": "BAN",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "Montag",
+          "program": "BAN"
+        },
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "16.03.2026",
+          "program": "BAN"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "Dienstag",
+          "program": "BAN"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "17.03.2026",
+          "program": "BAN"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "Mittwoch",
+          "program": "BAN"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "18.03.2026",
+          "program": "BAN"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "Donnerstag",
+          "program": "BAN"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "19.03.2026",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Freitag",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "20.03.2026",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "G2 2.41, Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Sicherheitsa. d. BAN (33-42404)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "M. Fernandes",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-11:15",
+          "info": "129 (Bunker), Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-11:15",
+          "info": "Web-Entwicklung (33-42406)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-11:15",
+          "info": "D. Hahn",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-11:15",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "215, Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Web-Entwicklung (33-42406)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "D. Hahn",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "AH -1.02 (UG), Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Data Analytics (33-42407)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "D. Gartner",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "AH -1.02 (UG), Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "Data Analytics (33-42407)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "D. Gartner",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "09:45-11:15",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "G2 0.37, Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "Dig. Wertschöpfungsk. (33-42401)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "D. Gartner",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "11:30-13:00",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "G2 0.37, Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "Dig. Wertschöpfungsk. (33-42401)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "D. Gartner",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-15:30",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "201, Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "Marketing (33-42402)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "J. Chung",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "15:45-17:15",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "129 (Bunker), Canvas",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "Unternehmensführung (33-42405)",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "W. Gunsenheimer",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "08:00-09:30",
+          "info": "BAN S4",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "Letzte Änderung: 13.03.2026 10:41",
+          "program": "BAN"
+        },
+        {
+          "day": "Freitag",
+          "time": "14:00-17:15",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "BAN"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    },
+    "1714": {
+      "program_id": "1714",
+      "program_name": "BPS",
+      "days": {},
+      "lectures": [
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "Montag",
+          "program": "BPS"
+        },
+        {
+          "day": "Montag",
+          "time": "17:00",
+          "info": "16.03.2026",
+          "program": "BPS"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "Dienstag",
+          "program": "BPS"
+        },
+        {
+          "day": "Dienstag",
+          "time": "17:00",
+          "info": "17.03.2026",
+          "program": "BPS"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "Mittwoch",
+          "program": "BPS"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "17:00",
+          "info": "18.03.2026",
+          "program": "BPS"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "Donnerstag",
+          "program": "BPS"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "17:00",
+          "info": "19.03.2026",
+          "program": "BPS"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Freitag",
+          "program": "BPS"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "20.03.2026",
+          "program": "BPS"
+        },
+        {
+          "day": "Freitag",
+          "time": "17:00",
+          "info": "Powered by StarPlan DatenschutzerklärungBarrierefreiheit",
+          "program": "BPS"
+        }
+      ],
+      "schedule_table": {
+        "headers": [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "Termine pro Wochentag",
+          "Minuten pro Wochentag",
+          "",
+          ""
+        ],
+        "rows": [
+          [
+            "ID Buchung",
+            "Buchung",
+            "Kürzel Veranst.",
+            "Name Veranst.",
+            "Prüfungsnummer",
+            "Gruppe",
+            "Alle Veranst.",
+            "Semester",
+            "Name Dozent",
+            "Verantwortlich",
+            "SWS",
+            "SWS Dozent",
+            "Notizen",
+            "ID Dozent",
+            "Kürzel Dozent",
+            "Status Dozent",
+            "ID Abteilung",
+            "Abteilung",
+            "Buchungstyp",
+            "ID Veranst.",
+            "ECTS",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Mo",
+            "Di",
+            "Mi",
+            "Do",
+            "Fr",
+            "Sa",
+            "So",
+            "Minuten gesamt",
+            "Max. Teilnehmer"
+          ]
+        ]
+      }
+    }
+  },
+  "lectures": [],
+  "extracted_at": "2026-03-22T08:32:59.230269"
+}

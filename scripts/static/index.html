@@ -200,6 +200,89 @@
             color: var(--text);
             line-height: 1.8;
         }
+        .ai-summary-content {
+            max-height: 120px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            position: relative;
+        }
+        .ai-summary-content.expanded {
+            max-height: none;
+        }
+        .ai-summary-fade {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(transparent, var(--summary-bg));
+            pointer-events: none;
+            transition: opacity 0.3s ease-out;
+        }
+        .ai-summary-content.expanded ~ .ai-summary-fade {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .ai-summary-toggle {
+            color: var(--link);
+            background: none;
+            border: none;
+            padding: 2px 0;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: underline;
+            transition: color 0.2s;
+        }
+        .ai-summary-toggle:hover {
+            color: var(--accent);
+        }
+        .ai-summary-disclaimer {
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        /* Markdown styling */
+        .ai-summary-text h1, .ai-summary-text h2, .ai-summary-text h3 {
+            margin-top: 10px;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        .ai-summary-text h1 { font-size: 1.1rem; }
+        .ai-summary-text h2 { font-size: 1.0rem; }
+        .ai-summary-text h3 { font-size: 0.95rem; }
+        .ai-summary-text ul, .ai-summary-text ol {
+            margin-left: 20px;
+            margin-top: 6px;
+            margin-bottom: 6px;
+        }
+        .ai-summary-text li {
+            margin-bottom: 4px;
+        }
+        .ai-summary-text p {
+            margin-bottom: 8px;
+        }
+        .ai-summary-text strong {
+            color: var(--link);
+            font-weight: 600;
+        }
+        .ai-summary-text code {
+            background: var(--surface);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .ai-summary-text blockquote {
+            border-left: 3px solid var(--summary-border);
+            margin-left: 0;
+            margin-top: 8px;
+            margin-bottom: 8px;
+            padding-left: 12px;
+            opacity: 0.9;
+        }
         .summary-loading {
             display: inline-flex;
             align-items: center;
@@ -810,6 +893,7 @@
             }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
 
@@ -974,7 +1058,16 @@
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                 KI-Zusammenfassung
             </div>
-            <div class="ai-summary-text" id="summaryText"></div>
+            <div class="ai-summary-text">
+                <div class="ai-summary-content" id="summaryContent"></div>
+                <div class="ai-summary-fade" id="summaryFade"></div>
+                <button class="ai-summary-toggle" id="summaryToggle" style="display:none;" onclick="toggleSummary()">
+                    Mehr anzeigen ↓
+                </button>
+                <div class="ai-summary-disclaimer">
+                    ⚠️ <em>Die KI kann Fehler machen. Überprüfe wichtige Informationen.</em>
+                </div>
+            </div>
             <div class="ai-summary-sources" id="summarySources"></div>
             
             <div class="ai-summary-feedback" id="feedbackArea">
@@ -1239,7 +1332,7 @@ async function performSearch(page = 1) {
         if (page === 1 && includeSummary && data.llm_enabled) {
             aiSummary.style.display = 'block';
             resetFeedbackUI();
-            document.getElementById('summaryText').innerHTML = `
+            document.getElementById('summaryContent').innerHTML = `
                 <span class="summary-loading">
                     <span class="summary-loading-label">KI-Zusammenfassung wird erstellt</span>
                     <span class="summary-loading-dots"><span></span><span></span><span></span></span>
@@ -1309,7 +1402,8 @@ async function fetchAndRenderSummary({ q, strictMatch, includeRerank, includeExp
 
         aiSummary.style.display = 'block';
         resetFeedbackUI();
-        document.getElementById('summaryText').innerHTML = formatSummary(data.summary);
+        const html = formatSummary(data.summary);
+        updateSummaryDisplay(html, data.summary);
 
         const sourcesEl = document.getElementById('summarySources');
         sourcesEl.innerHTML = '';
@@ -1472,8 +1566,46 @@ function highlightQuery(text, query) {
 }
 
 function formatSummary(text) {
-    // Make [1], [2] etc. styled
-    return text.replace(/\[(\d+)\]/g, '<strong style="color:var(--accent)">[$1]</strong>');
+    // Convert markdown to HTML using marked
+    let html = marked.parse(text);
+    // Make [1], [2] etc. styled with accent color
+    html = html.replace(/\[(\d+)\]/g, '<strong style="color:var(--accent)">[$1]</strong>');
+    return html;
+}
+
+function toggleSummary() {
+    const content = document.getElementById('summaryContent');
+    const toggle = document.getElementById('summaryToggle');
+    const isExpanded = content.classList.contains('expanded');
+    
+    if (isExpanded) {
+        content.classList.remove('expanded');
+        toggle.textContent = 'Mehr anzeigen ↓';
+    } else {
+        content.classList.add('expanded');
+        toggle.textContent = 'Weniger anzeigen ↑';
+    }
+}
+
+function updateSummaryDisplay(html, fullText) {
+    const content = document.getElementById('summaryContent');
+    const toggle = document.getElementById('summaryToggle');
+    const fade = document.getElementById('summaryFade');
+    
+    content.innerHTML = html;
+    
+    // Check if summary is long enough to warrant expand/collapse
+    const contentHeight = content.offsetHeight;
+    if (contentHeight > 120) {
+        toggle.style.display = 'block';
+        fade.style.display = 'block';
+        content.classList.remove('expanded');
+        toggle.textContent = 'Mehr anzeigen ↓';
+    } else {
+        toggle.style.display = 'none';
+        fade.style.display = 'none';
+        content.classList.add('expanded');
+    }
 }
 </script>
 
