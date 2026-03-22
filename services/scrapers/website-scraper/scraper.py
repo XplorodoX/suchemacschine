@@ -21,6 +21,8 @@ OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/data")
 TARGET_URLS = os.getenv("TARGET_URLS", "https://www.hs-aalen.de").split(",")
 MAX_DEPTH = int(os.getenv("MAX_DEPTH", "3"))
 TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", 60))
+DOWNLOAD_PDFS = os.getenv("DOWNLOAD_PDFS", "true").lower() == "true"
+PDF_DOWNLOAD_DIR = os.getenv("PDF_DOWNLOAD_DIR", "/pdf_sources")
 
 NON_HTML_EXTENSIONS = (
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
@@ -43,7 +45,7 @@ def create_session():
 
 def extract_text(html: str) -> str:
     """Extract clean text from HTML."""
-    soup = BeautifulSoup(html, 'lxml')
+    soup = BeautifulSoup(html, 'html.parser')
     
     # Remove unwanted elements
     for element in soup.find_all(['script', 'style', 'nav', 'footer']):
@@ -73,7 +75,36 @@ def extract_links(html: str, base_url: str) -> List[str]:
 def is_probably_non_html_url(url: str) -> bool:
     """Check URL extension to avoid fetching binary documents as web pages."""
     path = urlparse(url).path.lower()
+    # If we want to download PDFs, we don't treat them as "skip-worthy" non-HTML here,
+    # but we handle them separately in the main loop.
+    if DOWNLOAD_PDFS and path.endswith(".pdf"):
+        return False
     return path.endswith(NON_HTML_EXTENSIONS)
+
+def download_pdf(session: requests.Session, url: str) -> bool:
+    """Download PDF file to the designated directory."""
+    try:
+        os.makedirs(PDF_DOWNLOAD_DIR, exist_ok=True)
+        filename = os.path.basename(urlparse(url).path)
+        if not filename.lower().endswith(".pdf"):
+            filename += ".pdf"
+        
+        filepath = os.path.join(PDF_DOWNLOAD_DIR, filename)
+        
+        # Skip if already exists
+        if os.path.exists(filepath):
+            return True
+            
+        print(f"      📥 Downloading PDF: {filename}")
+        response = session.get(url, timeout=20)
+        response.raise_for_status()
+        
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
+        return True
+    except Exception as e:
+        print(f"      ⚠️  Failed to download PDF {url}: {e}")
+        return False
 
 def scrape_website():
     """Main scraping function."""
@@ -100,6 +131,11 @@ def scrape_website():
 
         if is_probably_non_html_url(url):
             print(f"   ⏭️  Skipping non-HTML resource: {url}")
+            continue
+        
+        # Handle PDF downloading
+        if DOWNLOAD_PDFS and urlparse(url).path.lower().endswith(".pdf"):
+            download_pdf(session, url)
             continue
         
         try:

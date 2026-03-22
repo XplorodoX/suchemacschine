@@ -5,8 +5,10 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import docker
+from docker.errors import DockerException
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -19,9 +21,9 @@ QDRANT_STARTUP_TIMEOUT_SECONDS = int(os.getenv("QDRANT_STARTUP_TIMEOUT_SECONDS",
 PIPELINE_NETWORK = os.getenv("PIPELINE_NETWORK", "suchemacschine_net")
 DATA_VOLUME = os.getenv("PIPELINE_DATA_VOLUME", "suchemacschine_scrape_data")
 PDF_VOLUME = os.getenv("PIPELINE_PDF_VOLUME", "suchemacschine_pdf_sources")
+CONTAINER_RUNTIME_SOCKET = os.getenv("CONTAINER_RUNTIME_SOCKET", "unix:///var/run/docker.sock")
 PARALLEL_SCRAPER_STEPS = {
     "website-scraper",
-    "pdf-indexer",
     "timetable-scraper",
 }
 
@@ -77,18 +79,68 @@ SERVICE_PIPELINE = [
     },
 ]
 
-client = docker.from_env()
+client = None
+
+
+def get_container_client() -> Optional[docker.DockerClient]:
+    """Create/reuse a container runtime client with Docker/Podman socket fallbacks."""
+    global client
+
+    if client is not None:
+        try:
+            client.ping()
+            return client
+        except Exception:
+            client = None
+
+    configured_host = os.getenv("DOCKER_HOST", "").strip()
+    candidate_hosts = []
+    if configured_host:
+        candidate_hosts.append(configured_host)
+
+    candidate_hosts.extend([
+        CONTAINER_RUNTIME_SOCKET,
+        "unix:///var/run/docker.sock",
+        "unix:///run/user/0/podman/podman.sock",
+        "unix:///run/podman/podman.sock",
+    ])
+
+    # Keep order stable while removing duplicates.
+    deduped_hosts = []
+    for host in candidate_hosts:
+        if host and host not in deduped_hosts:
+            deduped_hosts.append(host)
+
+    last_error = None
+    for host in deduped_hosts:
+        try:
+            probe_client = docker.DockerClient(base_url=host)
+            probe_client.ping()
+            client = probe_client
+            print(f"Container runtime connected via {host}")
+            return client
+        except Exception as exc:
+            last_error = exc
+
+    print(f"Container runtime unavailable. Tried: {deduped_hosts}")
+    if last_error is not None:
+        print(f"Last container runtime error: {last_error}")
+    return None
 
 
 def resolve_local_image_name(image_name: str) -> str:
     """Prefer already-available local images, including Podman localhost-prefixed tags."""
+    runtime_client = get_container_client()
+    if runtime_client is None:
+        return image_name
+
     candidates = [image_name]
     if not image_name.startswith("localhost/"):
         candidates.append(f"localhost/{image_name}")
 
     for candidate in candidates:
         try:
-            client.images.get(candidate)
+            runtime_client.images.get(candidate)
             return candidate
         except Exception:
             continue
@@ -121,6 +173,11 @@ def wait_for_qdrant_health() -> bool:
 
 def run_step(step: dict) -> bool:
     """Run one service step in the pipeline as an ephemeral container."""
+    runtime_client = get_container_client()
+    if runtime_client is None:
+        print("Step aborted: container runtime is unavailable")
+        return False
+
     service_name = step["name"]
     image_name = step["image"]
     resolved_image_name = resolve_local_image_name(image_name)
@@ -144,7 +201,7 @@ def run_step(step: dict) -> bool:
         container = None
         try:
             print(f"Trying image: {candidate}")
-            container = client.containers.run(
+            container = runtime_client.containers.run(
                 image=candidate,
                 name=f"{service_name}_run_{int(datetime.now().timestamp())}",
                 volumes=volumes,
@@ -182,6 +239,11 @@ def run_step(step: dict) -> bool:
 
 def start_step_container(step: dict):
     """Start one step container asynchronously and return the container object."""
+    runtime_client = get_container_client()
+    if runtime_client is None:
+        print("Parallel step start aborted: container runtime is unavailable")
+        return None
+
     service_name = step["name"]
     image_name = step["image"]
     resolved_image_name = resolve_local_image_name(image_name)
@@ -203,7 +265,7 @@ def start_step_container(step: dict):
     for candidate in deduped_candidates:
         try:
             print(f"Trying image: {candidate}")
-            container = client.containers.run(
+            container = runtime_client.containers.run(
                 image=candidate,
                 name=f"{service_name}_run_{int(datetime.now().timestamp())}",
                 volumes=volumes,
@@ -278,6 +340,10 @@ def run_pipeline() -> bool:
 
     if not wait_for_qdrant_health():
         print("Pipeline aborted: Qdrant is unavailable")
+        return False
+
+    if get_container_client() is None:
+        print("Pipeline aborted: container runtime is unavailable")
         return False
 
     scraper_steps = [step for step in SERVICE_PIPELINE if step["name"] in PARALLEL_SCRAPER_STEPS]

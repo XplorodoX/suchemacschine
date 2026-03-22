@@ -39,7 +39,7 @@ print_error() {
 compose() {
     if [[ "$COMPOSE_CMD" == "podman-compose" ]]; then
         export CONTAINER_SOCKET_PATH
-        CONTAINER_SOCKET_PATH="/run/podman/podman.sock"
+        CONTAINER_SOCKET_PATH="/run/user/0/podman/podman.sock"
     fi
     "$COMPOSE_CMD" -f "$COMPOSE_FILE" "$@"
 }
@@ -86,16 +86,37 @@ case "${1:-help}" in
         cd "$SERVICES_DIR"
         
         echo ""
-        echo "1️⃣  Website Scraper..."
-        compose --profile pipeline run --rm website-scraper || print_error "Website scraper failed"
-        
-        echo ""
-        echo "2️⃣  PDF Indexer..."
-        compose --profile pipeline run --rm pdf-indexer || print_error "PDF indexer failed"
-        
-        echo ""
-        echo "3️⃣  Timetable Scraper..."
-        compose --profile pipeline run --rm timetable-scraper || print_error "Timetable scraper failed"
+        echo "1️⃣  Starting scraper stage in parallel..."
+        compose --profile pipeline run --rm website-scraper &
+        website_pid=$!
+        compose --profile pipeline run --rm pdf-indexer &
+        pdf_pid=$!
+        compose --profile pipeline run --rm timetable-scraper &
+        timetable_pid=$!
+
+        wait "$website_pid"
+        website_status=$?
+        wait "$pdf_pid"
+        pdf_status=$?
+        wait "$timetable_pid"
+        timetable_status=$?
+
+        if [[ $website_status -ne 0 ]]; then
+            print_error "Website scraper failed"
+        fi
+        if [[ $pdf_status -ne 0 ]]; then
+            print_error "PDF indexer failed"
+        fi
+        if [[ $timetable_status -ne 0 ]]; then
+            print_error "Timetable scraper failed"
+        fi
+
+        if [[ $website_status -ne 0 || $pdf_status -ne 0 || $timetable_status -ne 0 ]]; then
+            print_error "Pipeline aborted: parallel scraper stage failed"
+            exit 1
+        fi
+
+        print_success "Parallel scraper stage complete"
         
         echo ""
         echo "4️⃣  Text Processor..."
