@@ -137,19 +137,22 @@
             height: 100%;
             background: linear-gradient(90deg, #8ab4f8, #81c995, #fdd663);
             border-radius: 999px;
-            animation: progressAnimation 2s ease-in-out infinite;
-            width: 30%;
-        }
-
-        @keyframes progressAnimation {
-            0%, 100% { width: 30%; }
-            50% { width: 70%; }
+            width: 0%;
+            transition: width 0.35s ease;
         }
 
         .progress-text {
             font-size: 0.8rem;
             color: var(--text-secondary);
             animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .progress-details {
+            margin-top: 8px;
+            font-size: 0.78rem;
+            color: #c8d1dd;
+            line-height: 1.45;
+            min-height: 2.2em;
         }
 
         @keyframes pulse {
@@ -772,21 +775,31 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 3px;
+            height: 4px;
             z-index: 999;
             display: none;
+            background: rgba(138, 180, 248, 0.08);
         }
-        .loading-bar::after {
-            content: '';
+        .loading-fill {
             display: block;
-            width: 40%;
+            width: 0%;
             height: 100%;
             background: linear-gradient(90deg, #4285f4, #8ab4f8, #4285f4);
-            animation: loadSlide 1.2s ease-in-out infinite;
+            transition: width 0.2s ease;
         }
-        @keyframes loadSlide {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(350%); }
+        .loading-label {
+            position: fixed;
+            top: 8px;
+            right: 12px;
+            background: rgba(32, 33, 36, 0.92);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.72rem;
+            letter-spacing: 0.01em;
+            display: none;
+            z-index: 1000;
         }
 
         .loading-skeleton {
@@ -1300,7 +1313,10 @@
 </head>
 <body>
 
-<div class="loading-bar" id="loadingBar"></div>
+<div class="loading-bar" id="loadingBar">
+    <div class="loading-fill" id="loadingBarFill"></div>
+</div>
+<div class="loading-label" id="loadingBarText">0%</div>
 
 <div class="bottom-action-bar" id="bottomActionBar">
     <button id="bottomSearchBtn" type="button">Suche</button>
@@ -1319,6 +1335,7 @@
                 <div class="progress-fill"></div>
             </div>
             <p class="progress-text" id="progressText">Bitte haben Sie Geduld...</p>
+            <p class="progress-details" id="progressDetails">Status wird geladen...</p>
         </div>
     </div>
 </div>
@@ -1601,6 +1618,7 @@ async function checkIndexingStatus() {
         if (data.indexing) {
             // Show loading overlay
             overlay.style.display = 'flex';
+            updateIndexingProgress(data);
             // Start polling for status updates
             const checkInterval = setInterval(async () => {
                 try {
@@ -1614,11 +1632,7 @@ async function checkIndexingStatus() {
                         landingPage.style.display = 'flex';
                         resultsPage.style.display = 'none';
                     } else {
-                        // Update progress text
-                        const progressText = document.getElementById('progressText');
-                        if (newData.total_points > 0) {
-                            progressText.textContent = `Indexiert: ${newData.total_points} Dokumente...`;
-                        }
+                        updateIndexingProgress(newData);
                     }
                 } catch (e) {
                     console.log('Status check error (continuing poll):', e);
@@ -1637,6 +1651,109 @@ async function checkIndexingStatus() {
         document.getElementById('landingPage').style.display = 'flex';
         document.getElementById('resultsPage').style.display = 'none';
     }
+}
+
+function updateIndexingProgress(statusData) {
+    const progressText = document.getElementById('progressText');
+    const progressDetails = document.getElementById('progressDetails');
+    const progressFill = document.querySelector('.progress-fill');
+    const progressPercent = Number(statusData.indexing_progress_percent || 0);
+
+    if (progressFill) {
+        progressFill.style.width = `${Math.max(0, Math.min(100, progressPercent))}%`;
+    }
+
+    if (progressText) {
+        const points = Number(statusData.total_points || 0);
+        const readyCollections = Number(statusData.ready_collections || 0);
+        const totalCollections = Number(statusData.total_collections || 0);
+        if (totalCollections > 0) {
+            progressText.textContent = `Fortschritt: ${Math.round(progressPercent)}% (${readyCollections}/${totalCollections} Collections, ${points} Dokumente)`;
+        } else {
+            progressText.textContent = `Fortschritt: ${Math.round(progressPercent)}% (${points} Dokumente indexiert)`;
+        }
+    }
+
+    if (progressDetails) {
+        const stage = statusData.current_stage || 'Initialisierung';
+        const details = statusData.stage_details || 'Daten werden vorbereitet und indexiert.';
+        progressDetails.textContent = `Aktueller Schritt: ${stage}. ${details}`;
+    }
+}
+
+function showLoadingProgress(label = 'Lade...') {
+    const loadingBar = document.getElementById('loadingBar');
+    const loadingFill = document.getElementById('loadingBarFill');
+    const loadingText = document.getElementById('loadingBarText');
+    loadingBar.style.display = 'block';
+    loadingText.style.display = 'block';
+    loadingFill.style.width = '2%';
+    loadingText.textContent = label;
+}
+
+function updateLoadingProgress(percent, label) {
+    const loadingFill = document.getElementById('loadingBarFill');
+    const loadingText = document.getElementById('loadingBarText');
+    const bounded = Math.max(0, Math.min(100, Number(percent) || 0));
+    loadingFill.style.width = `${bounded}%`;
+    if (label) {
+        loadingText.textContent = label;
+    } else {
+        loadingText.textContent = `${Math.round(bounded)}%`;
+    }
+}
+
+function hideLoadingProgress() {
+    const loadingBar = document.getElementById('loadingBar');
+    const loadingText = document.getElementById('loadingBarText');
+    const loadingFill = document.getElementById('loadingBarFill');
+    loadingBar.style.display = 'none';
+    loadingText.style.display = 'none';
+    loadingFill.style.width = '0%';
+}
+
+async function fetchJsonWithProgress(url, options = {}, onProgress = () => {}) {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (!response.body || !response.body.getReader) {
+        const json = await response.json();
+        onProgress(100, 0, contentLength);
+        return json;
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let receivedLength = 0;
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedLength += value.length;
+
+        if (contentLength > 0) {
+            const pct = Math.min(95, (receivedLength / contentLength) * 95);
+            onProgress(pct, receivedLength, contentLength);
+        }
+    }
+
+    onProgress(98, receivedLength, contentLength);
+
+    const body = new Uint8Array(receivedLength);
+    let position = 0;
+    for (const chunk of chunks) {
+        body.set(chunk, position);
+        position += chunk.length;
+    }
+
+    const text = new TextDecoder('utf-8').decode(body);
+    const json = JSON.parse(text || '{}');
+    onProgress(100, receivedLength, contentLength);
+    return json;
 }
 
 // Check status when page loads
@@ -1821,7 +1938,6 @@ async function performSearch(page = 1) {
     document.title = q + ' - HS Aalen AI-Suche';
 
     // Show loading
-    const loadingBar = document.getElementById('loadingBar');
     const skeleton = document.getElementById('skeleton');
     const aiSummary = document.getElementById('aiSummary');
     const resultsList = document.getElementById('resultsList');
@@ -1829,7 +1945,7 @@ async function performSearch(page = 1) {
     const resultsInfo = document.getElementById('resultsInfo');
     const transparencyPanel = document.getElementById('transparencyPanel');
 
-    loadingBar.style.display = 'block';
+    showLoadingProgress('0%');
 
     if (page === 1) {
         resetFeedbackUI();
@@ -1859,13 +1975,18 @@ async function performSearch(page = 1) {
         const semester = document.getElementById('resultsSemesterSelect').value;
 
         // Keep reranking disabled for fast primary results. Expansion stays user-controlled.
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=false&include_rerank=false&include_expansion=${includeExpansion}&strict_match=${strictMatch}&semester=${encodeURIComponent(semester)}&model_name=${encodeURIComponent(modelName)}&provider=${encodeURIComponent(provider)}`, {
+        const data = await fetchJsonWithProgress(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=false&include_rerank=false&include_expansion=${includeExpansion}&strict_match=${strictMatch}&semester=${encodeURIComponent(semester)}&model_name=${encodeURIComponent(modelName)}&provider=${encodeURIComponent(provider)}`, {
             headers: { 'X-OpenAI-Key': openaiKey }
+        }, (percent, loaded, total) => {
+            if (total > 0) {
+                updateLoadingProgress(percent, `${Math.round(percent)}%`);
+            } else {
+                updateLoadingProgress(Math.max(12, Math.min(90, percent || 12)), `${loaded} Bytes geladen`);
+            }
         });
-        const data = await res.json();
         latestSearchData = data;
 
-        loadingBar.style.display = 'none';
+        hideLoadingProgress();
         skeleton.style.display = 'none';
         resultsList.style.opacity = '1';
         
@@ -1950,7 +2071,7 @@ async function performSearch(page = 1) {
         }
 
     } catch (err) {
-        loadingBar.style.display = 'none';
+        hideLoadingProgress();
         skeleton.style.display = 'none';
         resultsList.innerHTML = '<p style="color:#f28b82;padding:20px;">Fehler bei der Suche. Bitte versuche es erneut.</p>';
     }
