@@ -42,8 +42,20 @@ app = FastAPI(title="HS Aalen AI Search")
 
 # Initialize models and clients once
 print("Loading Embedding Model...")
-model = SentenceTransformer(MODEL_NAME)
-client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+try:
+    model = SentenceTransformer(MODEL_NAME)
+    print("✓ Embedding model loaded")
+except Exception as e:
+    print(f"⚠️  Warning: Could not load embedding model: {e}")
+    print("Server will continue (model will load on first request)")
+    model = None
+
+try:
+    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    print("✓ Qdrant client connected")
+except Exception as e:
+    print(f"⚠️  Warning: Could not connect to Qdrant: {e}")
+    client = None
 
 # Serve static files
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -217,14 +229,14 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
         original_results = client.query_points(
             collection_name=COLLECTION_NAME,
             query=original_vector,
-            limit=int(total_limit * 0.7),  # 70% from main collection
+            limit=int(total_limit * 0.5),  # 50% from main collection
         ).points
 
         # Search with expanded query
         expanded_results = client.query_points(
             collection_name=COLLECTION_NAME,
             query=expanded_vector,
-            limit=int(total_limit * 0.7),
+            limit=int(total_limit * 0.5),
         ).points
 
         # Merge main collection results
@@ -245,17 +257,41 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
     except Exception as e:
         print(f"Error searching main collection: {e}")
     
-    # Search timetable collection (Starplan)
+    # Search HS Aalen website collection - 25%
+    try:
+        hs_aalen_results = client.query_points(
+            collection_name="hs_aalen_website",
+            query=original_vector,
+            limit=int(total_limit * 0.25),  # 25% from HS Aalen website
+        ).points
+        print(f"DEBUG: HS Aalen website collection returned {len(hs_aalen_results)} results")
+        all_results.extend(hs_aalen_results)
+    except Exception as e:
+        print(f"WARNING: HS Aalen website collection not available: {e}")
+    
+    # Search timetable collection (Starplan) - 15%
     try:
         timetable_results = client.query_points(
             collection_name="starplan_timetable",
             query=original_vector,
-            limit=int(total_limit * 0.3),  # 30% from timetable
+            limit=int(total_limit * 0.15),  # 15% from timetable
         ).points
         print(f"DEBUG: Timetable collection returned {len(timetable_results)} results")
         all_results.extend(timetable_results)
     except Exception as e:
         print(f"WARNING: Timetable collection not available: {e}")
+    
+    # Search ASTA collection - 10%
+    try:
+        asta_results = client.query_points(
+            collection_name="asta_content",
+            query=original_vector,
+            limit=int(total_limit * 0.1),  # 10% from ASTA
+        ).points
+        print(f"DEBUG: ASTA collection returned {len(asta_results)} results")
+        all_results.extend(asta_results)
+    except Exception as e:
+        print(f"WARNING: ASTA collection not available: {e}")
     
     # Final sort by score descending and limit
     merged = sorted(all_results, key=lambda x: x.score, reverse=True)
@@ -293,11 +329,11 @@ def boost_and_rank(
         res["lexical_score"] = float(lexical)
 
     if strict_match:
-        # Don't apply strict matching for timetable results (they have different data structure)
+        # Don't apply strict matching for timetable, website, and ASTA results (they have different data structure)
         results = [
             r
             for r in results
-            if r.get("type") == "timetable" or strict_match_passes(query, r.get("text", ""), r.get("url", ""))
+            if r.get("type") in ("timetable", "website", "asta") or strict_match_passes(query, r.get("text", ""), r.get("url", ""))
         ]
 
     # Filter weak matches so summary generation does not hallucinate from irrelevant sources.
@@ -540,23 +576,37 @@ async def api_search(
         # C. Formatting
         results = []
         for p in raw_points:
-            # Handle both HTML content and Timetable data
-            is_timetable = p.payload.get('source') == 'starplan_timetable'
+            # Handle HTML content, HS Aalen Website, ASTA, and Timetable data
+            source = p.payload.get('source', '')
+            is_timetable = source == 'starplan_timetable'
+            is_hs_website = source == 'hs_aalen_website'
+            is_asta = source == 'asta_website'
             
             # For timetable entries, create a formatted text
             if is_timetable:
                 formatted_text = f"{p.payload.get('program', '')} - {p.payload.get('day', '')} {p.payload.get('time', '')} - {p.payload.get('lecture_info', '')[:100]}"
+                result_type = 'timetable'
+            elif is_hs_website:
+                # For HS Aalen website, use title + content
+                formatted_text = f"{p.payload.get('title', '')}: {p.payload.get('content', '')[:150]}"
+                result_type = 'website'
+            elif is_asta:
+                # For ASTA content, use title + content
+                formatted_text = f"{p.payload.get('title', '')}: {p.payload.get('content', '')[:150]}"
+                result_type = 'asta'
             else:
                 formatted_text = p.payload.get("text", "")
+                result_type = 'webpage'
             
             results.append({
                 "score": float(p.score),
                 "url": p.payload.get("url"),
                 "text": formatted_text,
+                "title": p.payload.get("title"),  # For website/asta results
                 "program": p.payload.get("program"),  # For timetable
                 "day": p.payload.get("day"),  # For timetable
                 "time": p.payload.get("time"),  # For timetable
-                "type": p.payload.get("type", "webpage"),  # "timetable" or "webpage"
+                "type": result_type,  # "timetable", "website", "asta", or "webpage"
             })
 
         # D. Boost and Re-rank
