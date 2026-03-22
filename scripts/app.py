@@ -215,7 +215,7 @@ def lexical_relevance(query: str, text: str, url: str) -> float:
     return max(0.0, min(1.0, score))
 
 
-def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
+def hybrid_search(query: str, expanded_query: str, total_limit: int = 20, semester: str = "SoSe26"):
     """Hybrid search: search both main content and timetable collections."""
     # Encode both queries
     original_vector = model.encode(query).tolist()
@@ -269,17 +269,32 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20):
     except Exception as e:
         print(f"WARNING: HS Aalen website collection not available: {e}")
     
-    # Search timetable collection (Starplan) - 15%
+    # Search semester-specific timetable collection if available
+    # Priority: semester-specific collection > fallback to main timetable collection
+    semester_collection = f"starplan_{semester}"
+    
     try:
+        # Try semester-specific collection first
         timetable_results = client.query_points(
-            collection_name="starplan_timetable",
+            collection_name=semester_collection,
             query=original_vector,
             limit=int(total_limit * 0.15),  # 15% from timetable
         ).points
-        print(f"DEBUG: Timetable collection returned {len(timetable_results)} results")
+        print(f"DEBUG: Timetable collection ({semester_collection}) returned {len(timetable_results)} results")
         all_results.extend(timetable_results)
     except Exception as e:
-        print(f"WARNING: Timetable collection not available: {e}")
+        # Fallback to old main timetable if semester-specific not available
+        try:
+            print(f"Note: {semester_collection} not available, falling back to starplan_timetable")
+            timetable_results = client.query_points(
+                collection_name="starplan_timetable",
+                query=original_vector,
+                limit=int(total_limit * 0.15),
+            ).points
+            print(f"DEBUG: Main timetable collection returned {len(timetable_results)} results")
+            all_results.extend(timetable_results)
+        except Exception as e2:
+            print(f"WARNING: No timetable collection available: {e2}")
     
     # Search ASTA collection - 10%
     try:
@@ -527,6 +542,7 @@ async def api_search(
     model_name: str = Query(""),
     provider: str = Query("auto", pattern="^(auto|none|ollama|openai)$"),
     openai_api_key: str = Query(""),
+    semester: str = Query("SoSe26"),
     x_openai_key: Optional[str] = Header(default=None, alias="X-OpenAI-Key"),
 ):
     """Search endpoint with caching to improve performance."""
@@ -571,7 +587,7 @@ async def api_search(
         )
 
         # B. Vector Search
-        raw_points = hybrid_search(q, semantic_query, total_limit=50)
+        raw_points = hybrid_search(q, semantic_query, total_limit=50, semester=semester)
 
         # C. Formatting
         results = []

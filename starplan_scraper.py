@@ -54,14 +54,15 @@ class StarplanScraper:
                 
                 # For each program, extract timetable
                 logger.info("Extracting timetables...")
-                for program in programs[:10]:  # Limit to first 10 for testing
+                logger.info(f"📚 Processing all {len(programs)} programs (full scrape)...")
+                for i, program in enumerate(programs, 1):  # All 89 programs
                     try:
                         timetable = await self.extract_timetable(page, program)
                         if timetable:
                             self.data['timetables'][program['id']] = timetable
-                            logger.info(f"  ✓ {program['name']}: {len(timetable.get('lectures', []))} lectures")
+                            logger.info(f"  [{i}/{len(programs)}] ✓ {program['name']}: {len(timetable.get('lectures', []))} lectures")
                     except Exception as e:
-                        logger.warning(f"  ✗ {program['name']}: {e}")
+                        logger.warning(f"  [{i}/{len(programs)}] ✗ {program['name']}: {e}")
                 
             finally:
                 await browser.close()
