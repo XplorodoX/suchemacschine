@@ -328,13 +328,21 @@ def boost_and_rank(
 
 
 def has_strong_evidence(results: list) -> bool:
+    """Check if results are good enough for summary generation.
+    
+    Lowered thresholds to allow more summaries:
+    - If we have at least one result with score >= 0.45, consider it evidence
+    - OR if average of top3 results >= 0.40, that's also enough
+    """
     if not results:
         return False
 
     top1 = results[0].get("score", 0.0)
     top3 = results[:3]
     mean_top3 = sum(r.get("score", 0.0) for r in top3) / len(top3)
-    return top1 >= 0.5 and mean_top3 >= 0.42
+    
+    # More lenient: either top1 >= 0.45 OR mean_top3 >= 0.40
+    return (top1 >= 0.45) or (mean_top3 >= 0.40)
 
 
 def generate_summary(query: str, results: list, model_name: str, provider: str = "ollama", openai_api_key: str = "") -> str:
