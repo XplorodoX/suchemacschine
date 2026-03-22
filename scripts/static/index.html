@@ -465,6 +465,41 @@
             overflow: hidden;
         }
 
+        .timetable-card {
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(138, 180, 248, 0.08), rgba(138, 180, 248, 0.02));
+            padding: 14px;
+            margin-bottom: 24px;
+        }
+        .timetable-card .result-item-site {
+            margin-bottom: 8px;
+        }
+        .timetable-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .chip.day-montag { border-color: #8ab4f8; color: #8ab4f8; }
+        .chip.day-dienstag { border-color: #81c995; color: #81c995; }
+        .chip.day-mittwoch { border-color: #fdd663; color: #fdd663; }
+        .chip.day-donnerstag { border-color: #f6ad55; color: #f6ad55; }
+        .chip.day-freitag { border-color: #f28b82; color: #f28b82; }
+        .chip.semester-chip { border-color: var(--accent); color: var(--accent); }
+
         /* =================== PAGINATION =================== */
         .pagination {
             display: flex;
@@ -935,6 +970,15 @@
                     <label class="field-label" for="landingModelSelect">Modell</label>
                     <select id="landingModelSelect" class="model-selector" style="width:100%;"></select>
                 </div>
+                <div>
+                    <label class="field-label" for="landingSemesterSelect">Semester</label>
+                    <select id="landingSemesterSelect" class="model-selector" style="width:100%;">
+                        <option value="SoSe26">Sommersemester 2026</option>
+                        <option value="WS25">Wintersemester 2025/26</option>
+                        <option value="SoSe25">Sommersemester 2025</option>
+                        <option value="WS24">Wintersemester 2024/25</option>
+                    </select>
+                </div>
                 <div id="landingOpenAIWrap" style="display:none;">
                     <label class="field-label" for="landingOpenAIKey">OpenAI API Key</label>
                     <input id="landingOpenAIKey" class="settings-input" type="password" placeholder="sk-...">
@@ -1002,6 +1046,15 @@
                 <div>
                     <label class="field-label" for="resultsModelSelect">Modell</label>
                     <select id="resultsModelSelect" class="model-selector" style="width:100%;"></select>
+                </div>
+                <div>
+                    <label class="field-label" for="resultsSemesterSelect">Semester</label>
+                    <select id="resultsSemesterSelect" class="model-selector" style="width:100%;">
+                        <option value="SoSe26">Sommersemester 2026</option>
+                        <option value="WS25">Wintersemester 2025/26</option>
+                        <option value="SoSe25">Sommersemester 2025</option>
+                        <option value="WS24">Wintersemester 2024/25</option>
+                    </select>
                 </div>
                 <div id="resultsOpenAIWrap" style="display:none;">
                     <label class="field-label" for="resultsOpenAIKey">OpenAI API Key</label>
@@ -1131,6 +1184,8 @@ const landingProvider = document.getElementById('landingProviderSelect');
 const resultsProvider = document.getElementById('resultsProviderSelect');
 const landingModel = document.getElementById('landingModelSelect');
 const resultsModel = document.getElementById('resultsModelSelect');
+const landingSemester = document.getElementById('landingSemesterSelect');
+const resultsSemester = document.getElementById('resultsSemesterSelect');
 const landingOpenAIKey = document.getElementById('landingOpenAIKey');
 const resultsOpenAIKey = document.getElementById('resultsOpenAIKey');
 const landingOpenAIWrap = document.getElementById('landingOpenAIWrap');
@@ -1160,6 +1215,8 @@ resultsProvider.addEventListener('change', async () => {
 });
 landingModel.addEventListener('change', () => { resultsModel.value = landingModel.value; });
 resultsModel.addEventListener('change', () => { landingModel.value = resultsModel.value; });
+landingSemester.addEventListener('change', () => { resultsSemester.value = landingSemester.value; });
+resultsSemester.addEventListener('change', () => { landingSemester.value = resultsSemester.value; });
 landingOpenAIKey.addEventListener('change', async () => {
     resultsOpenAIKey.value = landingOpenAIKey.value;
     await initModels();
@@ -1304,11 +1361,10 @@ async function performSearch(page = 1) {
         const provider = document.getElementById('resultsProviderSelect').value;
         const openaiKey = document.getElementById('resultsOpenAIKey').value || '';
         const modelName = document.getElementById('resultsModelSelect').value;
+        const semester = document.getElementById('resultsSemesterSelect').value;
 
-        // OPTIMIZATION: Keep primary search pure vector search (fast ~100ms).
-        // No expansion or reranking on first request - these will be done async for summary.
-        // Only use expansion+rerank for the summary request to avoid slowing down initial results.
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=false&include_rerank=false&include_expansion=false&strict_match=${strictMatch}&model_name=${encodeURIComponent(modelName)}&provider=${encodeURIComponent(provider)}`, {
+        // Keep reranking disabled for fast primary results. Expansion stays user-controlled.
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${PER_PAGE}&include_summary=false&include_rerank=false&include_expansion=${includeExpansion}&strict_match=${strictMatch}&semester=${encodeURIComponent(semester)}&model_name=${encodeURIComponent(modelName)}&provider=${encodeURIComponent(provider)}`, {
             headers: { 'X-OpenAI-Key': openaiKey }
         });
         const data = await res.json();
@@ -1326,7 +1382,7 @@ async function performSearch(page = 1) {
         }
 
         // Results info
-        resultsInfo.textContent = `Ungefähr ${data.total_results} Ergebnisse`;
+        resultsInfo.textContent = `Ungefähr ${data.total_results} Ergebnisse · Semester: ${data.semester || semester}`;
 
         // AI Summary (asynchronous for better UX)
         if (page === 1 && includeSummary && data.llm_enabled) {
@@ -1339,7 +1395,7 @@ async function performSearch(page = 1) {
                 </span>
             `;
             document.getElementById('summarySources').innerHTML = '';
-            fetchAndRenderSummary({ q, strictMatch, includeRerank, includeExpansion, provider, openaiKey, modelName });
+            fetchAndRenderSummary({ q, strictMatch, includeRerank, includeExpansion, provider, openaiKey, modelName, semester });
         } else if (page === 1) {
             aiSummary.style.display = 'none';
         }
@@ -1351,8 +1407,30 @@ async function performSearch(page = 1) {
             const title = extractTitle(r.text, r.url);
 
             const item = document.createElement('div');
-            item.className = 'result-item';
-            item.innerHTML = `
+            if (r.type === 'timetable') {
+                const dayClass = getDayClass(r.day || '');
+                const lectureIcon = getLectureIcon(r.text || title);
+                item.className = 'result-item timetable-card';
+                item.innerHTML = `
+                <div class="result-item-site">
+                    <div class="result-item-favicon">${lectureIcon}</div>
+                    <div class="result-item-url-group">
+                        <div class="result-item-domain">Stundenplan</div>
+                        <div class="result-item-breadcrumb">${escapeHtml(r.program || domain || '')}</div>
+                    </div>
+                </div>
+                <div class="timetable-meta">
+                    <span class="chip ${dayClass}">📅 ${escapeHtml(r.day || 'Tag offen')}</span>
+                    <span class="chip">🕒 ${escapeHtml(r.time || 'Zeit offen')}</span>
+                    <span class="chip">📍 ${escapeHtml(r.room || 'Raum offen')}</span>
+                    <span class="chip semester-chip">🎓 ${escapeHtml(r.semester || semester)}</span>
+                </div>
+                <div class="result-item-title"><a href="${r.url}" target="_blank">${escapeHtml(title)}</a></div>
+                <div class="result-item-snippet">${highlightQuery(r.text, q)}</div>
+            `;
+            } else {
+                item.className = 'result-item';
+                item.innerHTML = `
                 <div class="result-item-site">
                     <div class="result-item-favicon">${domain.charAt(0).toUpperCase()}</div>
                     <div class="result-item-url-group">
@@ -1363,6 +1441,7 @@ async function performSearch(page = 1) {
                 <div class="result-item-title"><a href="${r.url}" target="_blank">${title}</a></div>
                 <div class="result-item-snippet">${highlightQuery(r.text, q)}</div>
             `;
+            }
             resultsList.appendChild(item);
         });
 
@@ -1379,14 +1458,12 @@ async function performSearch(page = 1) {
     }
 }
 
-async function fetchAndRenderSummary({ q, strictMatch, includeRerank, includeExpansion, provider, openaiKey, modelName }) {
+async function fetchAndRenderSummary({ q, strictMatch, includeRerank, includeExpansion, provider, openaiKey, modelName, semester }) {
     const requestId = ++summaryRequestCounter;
 
     try {
-        // For summary generation, use the same fast settings as primary search (no expansion/reranking).
-        // This ensures the summary is generated quickly from the vector search results.
-        // Expansion + reranking would add too much latency (60+ seconds) for summary generation.
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=1&per_page=${PER_PAGE}&include_summary=true&include_rerank=false&include_expansion=false&strict_match=${strictMatch}&model_name=${encodeURIComponent(modelName)}&provider=${encodeURIComponent(provider)}`, {
+        // Keep reranking disabled for summary speed. Expansion stays user-controlled.
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=1&per_page=${PER_PAGE}&include_summary=true&include_rerank=false&include_expansion=${includeExpansion}&strict_match=${strictMatch}&semester=${encodeURIComponent(semester)}&model_name=${encodeURIComponent(modelName)}&provider=${encodeURIComponent(provider)}`, {
             headers: { 'X-OpenAI-Key': openaiKey }
         });
         const data = await res.json();
@@ -1498,6 +1575,33 @@ function renderPagination(current, totalPages, hasMore) {
 // ---- Helpers ----
 function extractDomain(url) {
     try { return new URL(url).hostname; } catch { return url; }
+}
+
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getDayClass(day) {
+    const normalized = String(day || '').toLowerCase();
+    if (normalized.includes('montag')) return 'day-montag';
+    if (normalized.includes('dienstag')) return 'day-dienstag';
+    if (normalized.includes('mittwoch')) return 'day-mittwoch';
+    if (normalized.includes('donnerstag')) return 'day-donnerstag';
+    if (normalized.includes('freitag')) return 'day-freitag';
+    return '';
+}
+
+function getLectureIcon(text) {
+    const t = String(text || '').toLowerCase();
+    if (t.includes('labor') || t.includes('lab')) return '🔬';
+    if (t.includes('seminar')) return '👥';
+    if (t.includes('uebung') || t.includes('übung') || t.includes('tutorial')) return '🧩';
+    return '📚';
 }
 
 function extractPath(url) {

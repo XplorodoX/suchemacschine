@@ -8,6 +8,7 @@ und erstellt separate Datensets für jedes Semester
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -66,7 +67,7 @@ class MultiSemesterScraper:
                     logger.info(f"  Extracting timetables...")
                     for i, program in enumerate(programs, 1):
                         try:
-                            timetable = await self._extract_timetable(page, program)
+                            timetable = await self._extract_timetable(page, program, semester_info)
                             if timetable:
                                 semester_data['timetables'][program['id']] = timetable
                                 lectures = timetable.get('lectures', [])
@@ -106,7 +107,7 @@ class MultiSemesterScraper:
         
         return programs
     
-    async def _extract_timetable(self, page, program):
+    async def _extract_timetable(self, page, program, semester_info):
         """Extract timetable for program"""
         timetable = {
             'program_id': program['id'],
@@ -116,29 +117,34 @@ class MultiSemesterScraper:
         }
         
         try:
-            url = f"{self.base_url}?lan=de&sel=pg&og={program['id']}&pu=50&act=tt"
+            # Important: keep semester date for every program request.
+            url = (
+                f"{self.base_url}?lan=de&act=tt&sel=pg&og={program['id']}&pu=50"
+                f"&sd=true&dfc={semester_info['start_date']}&loc=1&sa=false&cb=o"
+            )
             await page.goto(url, wait_until="networkidle", timeout=15000)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000)
             
-            # Extract lecture data from table
+            # Table extraction (if available)
             schedule_data = await page.evaluate("""
                 () => {
-                    const table = document.querySelector('table');
-                    if (!table) return null;
+                    const tables = document.querySelectorAll('table');
+                    if (!tables.length) return null;
+                    const table = tables[0];
                     
                     const rows = table.querySelectorAll('tr');
                     const lectures = [];
                     
-                    for (let i = 1; i < rows.length; i++) {
-                        const cells = rows[i].querySelectorAll('td');
-                        if (cells.length >= 6) {
+                    for (let i = 0; i < rows.length; i++) {
+                        const cells = rows[i].querySelectorAll('td, th');
+                        if (cells.length >= 3) {
                             lectures.push({
-                                day: cells[0].textContent.trim(),
-                                time: cells[1].textContent.trim(),
-                                name: cells[2].textContent.trim(),
-                                lecturer: cells[3].textContent.trim(),
-                                room: cells[4].textContent.trim(),
-                                info: cells[5].textContent.trim()
+                                day: (cells[0]?.textContent || '').trim(),
+                                time: (cells[1]?.textContent || '').trim(),
+                                name: (cells[2]?.textContent || '').trim(),
+                                lecturer: (cells[3]?.textContent || '').trim(),
+                                room: (cells[4]?.textContent || '').trim(),
+                                info: (cells[5]?.textContent || '').trim()
                             });
                         }
                     }
@@ -146,10 +152,69 @@ class MultiSemesterScraper:
                     return lectures;
                 }
             """)
-            
+
+            parsed_lectures = []
+
+            # Text parsing fallback for mobile views without a structured table.
+            body_text = await page.evaluate('() => document.body.innerText')
+            lines = [ln.strip() for ln in body_text.split('\n') if ln.strip()]
+
+            current_day = None
+            current_time = None
+            day_pattern = re.compile(r'(Montag|Dienstag|Mittwoch|Donnerstag|Freitag)', re.I)
+            time_pattern = re.compile(r'^\d{1,2}:\d{2}(\s*-\s*\d{1,2}:\d{2})?')
+
+            for line in lines:
+                if day_pattern.search(line):
+                    current_day = line
+                    continue
+
+                if time_pattern.match(line):
+                    current_time = line
+                    continue
+
+                if not current_day or not current_time:
+                    continue
+
+                if len(line) < 4:
+                    continue
+
+                lower = line.lower()
+                if any(skip in lower for skip in ["stundenpl", "semester", "auswahl", "export", "anzeige"]):
+                    continue
+
+                parsed_lectures.append({
+                    'day': current_day,
+                    'time': current_time,
+                    'name': line,
+                    'lecturer': '',
+                    'room': '',
+                    'info': line,
+                    'program': program['name'],
+                    'semester': semester_info['name'],
+                })
+
+            # Prefer richer table data when it contains meaningful entries.
+            valid_table_lectures = []
             if schedule_data:
-                timetable['lectures'] = schedule_data
-                timetable['schedule_table'] = schedule_data
+                for lecture in schedule_data:
+                    merged = {
+                        'day': lecture.get('day', ''),
+                        'time': lecture.get('time', ''),
+                        'name': lecture.get('name', ''),
+                        'lecturer': lecture.get('lecturer', ''),
+                        'room': lecture.get('room', ''),
+                        'info': lecture.get('info', ''),
+                        'program': program['name'],
+                        'semester': semester_info['name'],
+                    }
+                    # Filter table headers/empty rows
+                    content = f"{merged['name']} {merged['info']}".strip()
+                    if len(content) >= 4 and not content.lower().startswith("tag"):
+                        valid_table_lectures.append(merged)
+
+            timetable['schedule_table'] = schedule_data
+            timetable['lectures'] = valid_table_lectures if valid_table_lectures else parsed_lectures
             
         except Exception as e:
             logger.debug(f"Could not extract timetable for {program['name']}: {e}")

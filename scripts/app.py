@@ -38,6 +38,21 @@ GERMAN_STOPWORDS = {
     "ihr", "nicht", "kein", "keine", "mehr", "auch", "den", "dem", "des", "bei", "über", "unter", "nach",
 }
 
+PROGRAM_QUERY_SYNONYMS = {
+    "informatik": ["ai", "csc", "computer science", "kuenstliche intelligenz", "ki"],
+    "computer science": ["informatik", "csc", "ai", "ki"],
+    "ki": ["kuenstliche intelligenz", "ai", "informatik"],
+    "kuenstliche intelligenz": ["ki", "ai", "informatik"],
+    "ai": ["ki", "kuenstliche intelligenz", "informatik", "csc"],
+    "csc": ["informatik", "computer science", "ai", "ki"],
+    "elektrotechnik": ["et", "ee", "electronics", "elektronik"],
+    "et": ["elektrotechnik", "electronics", "ee"],
+    "maschinenbau": ["mb", "mechanical engineering"],
+    "mb": ["maschinenbau", "mechanical engineering"],
+    "wirtschaftsinformatik": ["winf", "business informatics"],
+    "winf": ["wirtschaftsinformatik", "business informatics"],
+}
+
 app = FastAPI(title="HS Aalen AI Search")
 
 # Initialize models and clients once
@@ -156,6 +171,32 @@ def expand_query(query: str, model_name: str, provider: str = "ollama", openai_a
         return expanded if expanded else query
     except Exception:
         return query
+
+
+def expand_program_terms(query: str) -> str:
+    """Expand common study program aliases (e.g. Informatik <-> AI/CSC) without LLM."""
+    normalized = normalize_text(query)
+    expanded_terms = []
+
+    for key, synonyms in PROGRAM_QUERY_SYNONYMS.items():
+        if key in normalized:
+            expanded_terms.extend(synonyms)
+
+    if not expanded_terms:
+        return query
+
+    # Keep order stable while removing duplicates and existing query terms.
+    existing_tokens = set(tokenize(query))
+    deduped = []
+    for term in expanded_terms:
+        term_norm = normalize_text(term)
+        if term_norm and term_norm not in deduped and term_norm not in existing_tokens:
+            deduped.append(term_norm)
+
+    if not deduped:
+        return query
+
+    return f"{query} {' '.join(deduped)}"
 
 
 def normalize_text(text: str) -> str:
@@ -551,7 +592,7 @@ async def api_search(
     resolved_provider = resolve_provider(requested_provider, active_openai_key)
 
     llm_enabled = resolved_provider in {"ollama", "openai"}
-    include_expansion = include_expansion and llm_enabled
+    include_llm_expansion = include_expansion and llm_enabled
     include_rerank = include_rerank and llm_enabled
     include_summary = include_summary and llm_enabled
 
@@ -571,6 +612,7 @@ async def api_search(
         include_expansion,
         strict_match,
         bool(active_openai_key),
+        semester,
     )
 
     # 1. Check Cache
@@ -582,9 +624,11 @@ async def api_search(
         # A. Expansion
         semantic_query = (
             expand_query(q, model_for_provider, provider=resolved_provider, openai_api_key=active_openai_key)
-            if include_expansion
+            if include_llm_expansion
             else q
         )
+        if include_expansion:
+            semantic_query = expand_program_terms(semantic_query)
 
         # B. Vector Search
         raw_points = hybrid_search(q, semantic_query, total_limit=50, semester=semester)
@@ -594,7 +638,8 @@ async def api_search(
         for p in raw_points:
             # Handle HTML content, HS Aalen Website, ASTA, and Timetable data
             source = p.payload.get('source', '')
-            is_timetable = source == 'starplan_timetable'
+            payload_type = p.payload.get('type', '')
+            is_timetable = source == 'starplan_timetable' or payload_type == 'timetable' or bool(p.payload.get('day') and p.payload.get('time'))
             is_hs_website = source == 'hs_aalen_website'
             is_asta = source == 'asta_website'
             
@@ -622,6 +667,8 @@ async def api_search(
                 "program": p.payload.get("program"),  # For timetable
                 "day": p.payload.get("day"),  # For timetable
                 "time": p.payload.get("time"),  # For timetable
+                "semester": p.payload.get("semester"),
+                "room": p.payload.get("room"),
                 "type": result_type,  # "timetable", "website", "asta", or "webpage"
             })
 
@@ -682,6 +729,7 @@ async def api_search(
         "provider": resolved_provider,
         "requested_provider": requested_provider,
         "llm_enabled": llm_enabled,
+        "semester": semester,
     }
 
 
