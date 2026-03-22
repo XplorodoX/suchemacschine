@@ -17,16 +17,15 @@ search_cache = {}
 MAX_CACHE_SIZE = 100
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
+from sentence_transformers import SentenceTransformer
 
 # Configuration (Overridden by Environment Variables)
 COLLECTION_NAME = "hs_aalen_search"
-OLLAMA_URL_BASE = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_URL = f"{OLLAMA_URL_BASE}/api/generate"
-OLLAMA_EMBEDDINGS_URL = f"{OLLAMA_URL_BASE}/api/embeddings"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
-OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
+MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
 OPENAI_URL = os.getenv("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_FALLBACK_MODELS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1"]
@@ -40,32 +39,58 @@ GERMAN_STOPWORDS = {
 }
 
 PROGRAM_QUERY_SYNONYMS = {
-    "informatik": ["ai", "csc", "computer science", "kuenstliche intelligenz", "ki"],
-    "computer science": ["informatik", "csc", "ai", "ki"],
-    "ki": ["kuenstliche intelligenz", "ai", "informatik"],
-    "kuenstliche intelligenz": ["ki", "ai", "informatik"],
-    "ai": ["ki", "kuenstliche intelligenz", "informatik", "csc"],
-    "csc": ["informatik", "computer science", "ai", "ki"],
-    "elektrotechnik": ["et", "ee", "electronics", "elektronik"],
-    "et": ["elektrotechnik", "electronics", "ee"],
+    # Study Program synonyms
+    "informatik": ["in", "ai", "csc", "computer science", "kuenstliche intelligenz", "ki"],
+    "computer science": ["informatik", "in", "csc", "ai", "ki"],
+    "ki": ["kuenstliche intelligenz", "ai", "informatik", "in"],
+    "kuenstliche intelligenz": ["ki", "ai", "informatik", "in"],
+    "ai": ["ki", "kuenstliche intelligenz", "informatik", "in", "csc"],
+    "csc": ["informatik", "in", "computer science", "ai", "ki"],
+    "elektrotechnik": ["et", "e technik", "etechnik", "ee", "electronics", "elektronik"],
+    "e technik": ["et", "elektrotechnik", "etechnik"],
+    "etechnik": ["et", "elektrotechnik", "e technik"],
+    "et": ["elektrotechnik", "e technik", "etechnik", "electronics", "ee"],
     "maschinenbau": ["mb", "mechanical engineering"],
     "mb": ["maschinenbau", "mechanical engineering"],
     "wirtschaftsinformatik": ["winf", "business informatics"],
     "winf": ["wirtschaftsinformatik", "business informatics"],
+    "data science": ["ds"],
+    "ds": ["data science"],
+}
+
+MODULE_QUERY_SYNONYMS = {
+    # Module/Class synonyms
+    "theoretische informatik": ["tib", "theo", "thi"],
+    "theoretische info": ["tib", "theo", "thi"],
+    "theo": ["theoretische informatik", "tib"],
+    "mathematik": ["mathe", "ma"],
+    "mathematik 1": ["mathe 1", "ma1", "ma 1"],
+    "mathematik 2": ["mathe 2", "ma2", "ma 2"],
+    "software engineering": ["se"],
+    "software engineering 1": ["se1", "se 1"],
+    "software engineering 2": ["se2", "se 2"],
+    "mensch computer interaktion": ["mci"],
+    "mensch-computer-interaktion": ["mci"],
 }
 
 app = FastAPI(title="HS Aalen AI Search")
 
-# Initialize clients once
-print("Connecting to Qdrant...")
+# Initialize models and clients once
+print("Loading Embedding Model...")
+try:
+    model = SentenceTransformer(MODEL_NAME)
+    print("✓ Embedding model loaded")
+except Exception as e:
+    print(f"⚠️  Warning: Could not load embedding model: {e}")
+    print("Server will continue (model will load on first request)")
+    model = None
+
 try:
     client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
     print("✓ Qdrant client connected")
 except Exception as e:
     print(f"⚠️  Warning: Could not connect to Qdrant: {e}")
     client = None
-
-print("✓ Ready to use Ollama for embeddings and LLM")
 
 # Serve static files
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -103,25 +128,10 @@ def call_llm(prompt: str, model_name: str, provider: str = "ollama", openai_api_
     return (response.json().get("response", "") or "").strip()
 
 
-def get_ollama_embeddings(text: str) -> list[float]:
-    """Get embeddings from Ollama via local API."""
-    try:
-        response = requests.post(
-            OLLAMA_EMBEDDINGS_URL,
-            json={"model": OLLAMA_EMBEDDING_MODEL, "prompt": text},
-            timeout=30,
-        )
-        response.raise_for_status()
-        return response.json().get("embedding", [])
-    except Exception as e:
-        print(f"⚠️  Warning: Could not get embeddings from Ollama: {e}")
-        # Return zero vector as fallback
-        return [0.0] * 384  # Default embedding dimension for nomic-embed-text
-
-
 def is_ollama_available() -> bool:
     try:
-        response = requests.get(f"{OLLAMA_URL_BASE}/api/tags", timeout=4)
+        base_ollama = OLLAMA_URL.replace("/api/generate", "/api/tags")
+        response = requests.get(base_ollama, timeout=4)
         response.raise_for_status()
         return True
     except Exception:
@@ -184,11 +194,17 @@ def expand_query(query: str, model_name: str, provider: str = "ollama", openai_a
 
 
 def expand_program_terms(query: str) -> str:
-    """Expand common study program aliases (e.g. Informatik <-> AI/CSC) without LLM."""
+    """Expand common study program aliases and module abbreviations without LLM."""
     normalized = normalize_text(query)
     expanded_terms = []
 
     for key, synonyms in PROGRAM_QUERY_SYNONYMS.items():
+        # Only expand program synonyms if they match whole words to prevent
+        # "theoretische informatik" from expanding to full "AI" and "CSC"
+        if re.search(rf"\b{re.escape(key)}\b", normalized):
+            expanded_terms.extend(synonyms)
+
+    for key, synonyms in MODULE_QUERY_SYNONYMS.items():
         if key in normalized:
             expanded_terms.extend(synonyms)
 
@@ -268,41 +284,27 @@ def lexical_relevance(query: str, text: str, url: str) -> float:
 
 def hybrid_search(query: str, expanded_query: str, total_limit: int = 20, semester: str = "SoSe26"):
     """Hybrid search: search both main content and timetable collections."""
-    # Encode both queries using Ollama
-    original_vector = get_ollama_embeddings(query)
-    expanded_vector = get_ollama_embeddings(expanded_query)
-    
-    # Check if embeddings are valid (not just fallback zeros)
-    has_valid_embeddings = original_vector and any(v != 0.0 for v in original_vector)
-    
-    if not has_valid_embeddings:
-        print(f"⚠️  Warning: No valid embeddings, using text-only search")
+    # Encode both queries
+    original_vector = model.encode(query).tolist()
+    expanded_vector = model.encode(expanded_query).tolist()
 
     all_results = []
     
     # Search main collection (HTML content)
     try:
-        if has_valid_embeddings:
-            # Vector search
-            original_results = client.query_points(
-                collection_name=COLLECTION_NAME,
-                query=original_vector,
-                limit=int(total_limit * 0.5),
-            ).points
-            expanded_results = client.query_points(
-                collection_name=COLLECTION_NAME,
-                query=expanded_vector,
-                limit=int(total_limit * 0.5),
-            ).points
-        else:
-            # Fallback to all points if vector search fails
-            original_results = client.get_points(
-                collection_name=COLLECTION_NAME,
-                ids=list(range(0, 100)),
-                with_vectors=True,
-                with_payload=True,
-            ).points
-            expanded_results = []
+        # Search with original query
+        original_results = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=original_vector,
+            limit=int(total_limit * 0.5),  # 50% from main collection
+        ).points
+
+        # Search with expanded query
+        expanded_results = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=expanded_vector,
+            limit=int(total_limit * 0.5),
+        ).points
 
         # Merge main collection results
         seen_main = {}
@@ -324,14 +326,11 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20, semest
     
     # Search HS Aalen website collection - 25%
     try:
-        if has_valid_embeddings:
-            hs_aalen_results = client.query_points(
-                collection_name="hs_aalen_website",
-                query=original_vector,
-                limit=int(total_limit * 0.25),
-            ).points
-        else:
-            hs_aalen_results = []
+        hs_aalen_results = client.query_points(
+            collection_name="hs_aalen_website",
+            query=original_vector,
+            limit=int(total_limit * 0.25),  # 25% from HS Aalen website
+        ).points
         print(f"DEBUG: HS Aalen website collection returned {len(hs_aalen_results)} results")
         all_results.extend(hs_aalen_results)
     except Exception as e:
@@ -404,10 +403,28 @@ def boost_and_rank(
     for res in results:
         raw_vector = res.get("score", 0.0)
         vector_norm = (raw_vector - min_score) / denom
-        lexical = lexical_relevance(query, res.get("text", ""), res.get("url", ""))
+        url_str = res.get("url", "").lower()
+        text_str = res.get("text", "")
+        lexical = lexical_relevance(query, text_str, url_str)
 
         # Weighted rank fusion: semantics dominate, lexical relevance stabilizes precision.
-        res["score"] = (0.72 * vector_norm) + (0.28 * lexical)
+        final_score = (0.72 * vector_norm) + (0.28 * lexical)
+        
+        # URL Path Boost: If the user searches for a specific concept that is literally the page URL 
+        # (e.g. "exmatrikulation" matching "hs-aalen.de/.../exmatrikulation"), boost it significantly.
+        q_lower = query.lower().strip()
+        if len(q_lower) >= 4 and q_lower in url_str:
+            final_score += 0.35  # Massive boost for exact URL match
+        elif any(len(t) >= 5 and t in url_str for t in tokenize(q_lower)):
+            final_score += 0.15  # Partial URL match boost
+            
+        # User Feedback: Prioritize timetable answers ("am besten wann das im VL plan ist")
+        # Timetables often use acronyms (e.g. "TIB") that fail lexical matching against full names ("Theoretische Informatik").
+        # If the semantic vector is somewhat strong (matching concepts like IN, TIB, Theoretisch), bump it high.
+        if res.get("type") == "timetable" and raw_vector >= 0.45:
+            final_score += 0.25
+            
+        res["score"] = final_score
         res["vector_score"] = float(raw_vector)
         res["lexical_score"] = float(lexical)
 
@@ -497,16 +514,26 @@ def generate_summary(query: str, results: list, model_name: str, provider: str =
     for i, res in enumerate(top_results, 1):
         text = res.get("text", "")[:350]
         url = res.get("url", "")
-        snippets += f"[{i}] QUELLE: {url}\nTEXT: {text}\n\n"
+        snippets += f"[{i}] QUELLE: {url}\n"
+        
+        pdf_sources = res.get("pdf_sources", [])
+        if pdf_sources:
+            pdf_urls = [pdf.get("url") for pdf in pdf_sources if isinstance(pdf, dict) and pdf.get("url")]
+            if pdf_urls:
+                snippets += f"    Zugehörige PDFs: {', '.join(pdf_urls)}\n"
+                
+        snippets += f"TEXT: {text}\n\n"
 
     prompt = (
-        "Du bist der HS Aalen Such-Assistent. "
-        f"Beantworte die Anfrage \"{query}\" basierend auf diesen Quellen:\n\n{snippets}\n"
+        "Du bist ein hilfsbereiter studentischer Assistent der HS Aalen (Du-Form). "
+        f"Beantworte die Anfrage \"{query}\" leicht verständlich basierend auf diesen Quellen:\n\n{snippets}\n"
         "Regeln:\n"
-        "1. Nutze [1], [2] etc. für Zitate.\n"
-        "2. Sei präzise und nenne konkrete Fakten.\n"
-        "3. Erfinde keine Informationen, die nicht in den Quellen stehen.\n"
-        "4. Wenn die Quellen nicht ausreichen, antworte nur: KEINE_EVIDENZ"
+        "1. Nutze [1], [2] etc. als Quellenangabe im Text.\n"
+        "2. Formuliere locker, freundlich und auf Augenhöhe mit Studenten.\n"
+        "3. Benutze KEINE hochgestochenen oder akademischen Füllwörter wie 'Evidenz' oder 'Primärer Anlaufpunkt'.\n"
+        "4. Wenn Infos fehlen, erfinde nichts. Schreib nicht 'Keine Evidenz gefunden', sondern lass es einfach weg.\n"
+        "5. Wenn die Quellen gar keine Antwort bieten, antworte exakt nur: UNBEKANNT\n"
+        "6. VERWECHSELE NIEMALS ein Fach/Modul (wie 'Theoretische Informatik') mit einem Studiengang! Wenn danach gefragt wird, nenne die Zeiten aus dem Stundenplan, aber behaupte niemals, es sei ein eigener Studiengang."
     )
     try:
         summary = call_llm(
@@ -517,7 +544,7 @@ def generate_summary(query: str, results: list, model_name: str, provider: str =
             timeout=60,
         )
         summary = re.sub(r"<think>.*?</think>", "", summary, flags=re.DOTALL).strip()
-        if "KEINE_EVIDENZ" in summary.upper():
+        if "UNBEKANNT" in summary.upper():
             return ""
         return summary if summary else ""
     except Exception:
@@ -690,13 +717,14 @@ async def api_search(
                 "score": float(p.score),
                 "url": p.payload.get("url"),
                 "text": formatted_text,
-                "title": p.payload.get("title"),  # For website/asta results
-                "program": p.payload.get("program"),  # For timetable
-                "day": p.payload.get("day"),  # For timetable
-                "time": p.payload.get("time"),  # For timetable
+                "title": p.payload.get("title", formatted_text[:50]), 
+                "program": p.payload.get("program"), 
+                "day": p.payload.get("day"), 
+                "time": p.payload.get("time"), 
                 "semester": p.payload.get("semester"),
                 "room": p.payload.get("room"),
                 "type": result_type,  # "timetable", "website", "asta", or "webpage"
+                "pdf_sources": p.payload.get("pdf_sources", [])
             })
 
         # D. Boost and Re-rank
@@ -751,7 +779,14 @@ async def api_search(
         "page": page,
         "per_page": per_page,
         "has_more": end < len(ranked_results),
-        "sources": [{"index": i+1, "url": r["url"]} for i, r in enumerate(ranked_results[:5])],
+        "sources": [
+            {
+                "index": i+1, 
+                "url": r.get("url"),
+                "pdfs": [pdf.get("url") for pdf in r.get("pdf_sources", []) if isinstance(pdf, dict) and pdf.get("url")]
+            } 
+            for i, r in enumerate(ranked_results[:5])
+        ],
         "model": model_for_provider,
         "provider": resolved_provider,
         "requested_provider": requested_provider,
@@ -784,103 +819,6 @@ async def save_feedback(req: FeedbackRequest):
     except Exception as e:
         print(f"Error saving feedback: {e}")
         raise HTTPException(status_code=500, detail="Could not save feedback")
-
-
-@app.get("/api/status")
-async def get_status():
-    """Check if the database has indexed data."""
-    try:
-        if not client:
-            return {
-                "status": "error",
-                "message": "Qdrant not available",
-                "indexing": True,
-                "collections": []
-            }
-        
-        # Get all collections
-        collections_response = client.get_collections()
-        collections = collections_response.collections if collections_response else []
-        
-        collection_status = {}
-        total_points = 0
-        ready_collections = 0
-        
-        for col in collections:
-            col_name = col.name
-            try:
-                # Try to get collection info
-                info = client.get_collection(col_name)
-                point_count = info.points_count if info else 0
-                collection_status[col_name] = {
-                    "points": point_count,
-                    "empty": point_count == 0
-                }
-                total_points += point_count
-                if point_count > 0:
-                    ready_collections += 1
-            except Exception as e:
-                print(f"Error getting info for collection {col_name}: {e}")
-                collection_status[col_name] = {"error": str(e), "empty": True}
-        
-        total_collections = len(collections)
-
-        def points_for(names: list[str]) -> int:
-            return sum(collection_status.get(name, {}).get("points", 0) for name in names)
-
-        website_points = points_for(["hs_aalen_website", "asta_content"])
-        timetable_points = points_for(["timetable_data", "starplan_timetable"])
-        search_points = points_for(["hs_aalen_search"])
-
-        if total_points == 0:
-            current_stage = "Warte auf Scraper-Daten"
-            stage_details = "Crawler startet und sammelt Webseiten, PDFs und Stundenpläne."
-        elif website_points == 0:
-            current_stage = "Scraping: Webseiten"
-            stage_details = "Website-Inhalte werden gerade erfasst und vorbereitet."
-        elif timetable_points == 0:
-            current_stage = "Scraping: Stundenpläne"
-            stage_details = "Stundenplan-Daten werden gerade gesammelt und normalisiert."
-        elif search_points == 0:
-            current_stage = "Indexing: Vektoren"
-            stage_details = "Embeddings werden erstellt und in Qdrant indexiert."
-        else:
-            current_stage = "Finalisierung"
-            stage_details = "Qualitätscheck und Abschluss der initialen Indizierung."
-
-        # System is "indexing" if dataset is still tiny.
-        is_indexing = total_points < 10
-
-        # Progress is based on collection readiness + warm-up points.
-        point_progress = min(total_points / 10.0, 1.0)
-        if total_collections > 0:
-            collection_progress = ready_collections / total_collections
-            progress = (collection_progress * 0.8) + (point_progress * 0.2)
-        else:
-            progress = point_progress * 0.8
-
-        indexing_progress_percent = round((100.0 if not is_indexing else min(progress * 100.0, 99.0)), 1)
-        
-        return {
-            "status": "ok",
-            "indexing": is_indexing,
-            "total_points": total_points,
-            "ready_collections": ready_collections,
-            "total_collections": total_collections,
-            "indexing_progress_percent": indexing_progress_percent,
-            "current_stage": current_stage,
-            "stage_details": stage_details,
-            "collections": collection_status,
-            "message": "Datenbank wird gerade indexiert... Bitte haben Sie Geduld!" if is_indexing else "Bereit zur Suche"
-        }
-    except Exception as e:
-        print(f"Error getting status: {e}")
-        return {
-            "status": "error",
-            "message": str(e),
-            "indexing": True,
-            "collections": []
-        }
 
 
 @app.get("/")
