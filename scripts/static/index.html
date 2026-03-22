@@ -1068,6 +1068,10 @@ async function performSearch(page = 1) {
     const resultsInfo = document.getElementById('resultsInfo');
 
     loadingBar.style.display = 'block';
+
+    if (page === 1) {
+        resetFeedbackUI();
+    }
     
     if (page === 1) {
         skeleton.style.display = 'block';
@@ -1112,6 +1116,7 @@ async function performSearch(page = 1) {
         // AI Summary
         if (data.summary && page === 1) {
             aiSummary.style.display = 'block';
+            resetFeedbackUI();
             document.getElementById('summaryText').innerHTML = formatSummary(data.summary);
 
             const sourcesEl = document.getElementById('summarySources');
@@ -1182,6 +1187,16 @@ async function sendFeedback(rating) {
             body: JSON.stringify({ query: q, summary: summary, rating: rating, model: model })
         });
     } catch (e) { console.error('Error sending feedback:', e); }
+}
+
+function resetFeedbackUI() {
+    const up = document.getElementById('btnUp');
+    const down = document.getElementById('btnDown');
+    const thanks = document.getElementById('feedbackThanks');
+
+    if (up) up.style.display = 'inline-flex';
+    if (down) down.style.display = 'inline-flex';
+    if (thanks) thanks.style.display = 'none';
 }
 
 function renderPagination(current, totalPages, hasMore) {

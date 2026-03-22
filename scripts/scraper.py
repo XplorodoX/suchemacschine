@@ -2,6 +2,7 @@ import json
 import re
 import time
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -24,6 +25,20 @@ ROOT_SITEMAP_INDEX = "https://www.hs-aalen.de/sitemap.xml"
 OUTPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data.jsonl"
 REPORT_FILE = "/Users/merluee/Desktop/suchemacschine/scrape_report.json"
 MIN_CONTENT_LENGTH = 350
+NOISE_PATTERNS = [
+    r"AI Suche",
+    r"Hallo, ich bin deine AI Suche.*",
+    r"Häufig gesucht:.*",
+    r"Suchbegriff eingeben",
+    r"Link in Zwischenablage kopiert",
+    r"Kopieren",
+    r"Schließen",
+    r"Teilen",
+    r"Facebook",
+    r"LinkedIn",
+    r"Email",
+    r"Url",
+]
 
 
 class BrowserRenderer:
@@ -146,7 +161,83 @@ def get_urls_from_sitemap(session, sitemap_url):
 
 
 def clean_text(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "")).strip()
+    cleaned = (text or "")
+    for pattern in NOISE_PATTERNS:
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def path_of(url: str) -> str:
+    return urlparse(url).path.lower()
+
+
+def is_person_page(url: str) -> bool:
+    return "/person/" in path_of(url)
+
+
+def is_event_page(url: str) -> bool:
+    return "/veranstaltungen/veranstaltung/" in path_of(url)
+
+
+def extract_jsonld_sections(soup):
+    sections = []
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        raw_json = (script.string or script.get_text() or "").strip()
+        if not raw_json:
+            continue
+        try:
+            payload = json.loads(raw_json)
+        except Exception:
+            continue
+
+        items = payload if isinstance(payload, list) else [payload]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+
+            parts = []
+            for field in [
+                "name",
+                "description",
+                "articleBody",
+                "jobTitle",
+                "startDate",
+                "endDate",
+            ]:
+                value = item.get(field)
+                if isinstance(value, str):
+                    text = clean_text(value)
+                    if text:
+                        parts.append(text)
+
+            location = item.get("location")
+            if isinstance(location, dict):
+                loc_name = location.get("name")
+                if isinstance(loc_name, str) and loc_name.strip():
+                    parts.append(clean_text(f"Ort: {loc_name}"))
+
+            if parts:
+                section_text = clean_text(" ".join(parts))
+                if len(section_text) >= 40:
+                    sections.append({"heading": "Strukturierte Daten", "text": section_text})
+    return sections
+
+
+def maybe_add_template_section(url: str, main_container, h1: str):
+    sections = []
+    main_text = clean_text(main_container.get_text(separator=" ", strip=True))
+
+    if is_person_page(url):
+        if main_text:
+            sections.append({"heading": h1 or "Person", "text": main_text})
+
+    if is_event_page(url) and main_text:
+        trimmed = re.split(r"Weitere Veranstaltungen", main_text, maxsplit=1, flags=re.IGNORECASE)[0]
+        trimmed = clean_text(trimmed)
+        if trimmed:
+            sections.append({"heading": h1 or "Veranstaltung", "text": trimmed})
+
+    return sections
 
 
 def extract_sections(main_container):
@@ -154,7 +245,7 @@ def extract_sections(main_container):
     current_heading = "Allgemein"
     current_text_parts = []
 
-    for element in main_container.find_all(["h1", "h2", "h3", "p", "li"], recursive=True):
+    for element in main_container.find_all(["h1", "h2", "h3", "p", "li", "dt", "dd", "td", "th"], recursive=True):
         text = clean_text(element.get_text(separator=" ", strip=True))
         if not text:
             continue
@@ -190,6 +281,7 @@ def extract_structured_from_html(html: str, url: str):
     soup = BeautifulSoup(html, "html.parser")
 
     title = clean_text(soup.title.get_text()) if soup.title else ""
+    jsonld_sections = extract_jsonld_sections(soup)
 
     for element in soup(["script", "style", "nav", "footer", "form", "aside", "noscript", "iframe"]):
         element.decompose()
@@ -208,7 +300,7 @@ def extract_structured_from_html(html: str, url: str):
             "content": "",
         }
 
-    exclude_patterns = r"breadcrumb|share|social|nav|menu|pagination|button|modal"
+    exclude_patterns = r"breadcrumb|share|social|nav|menu|pagination|button|modal|ai-search|chat|cookie"
     for element in main_container.find_all(class_=re.compile(exclude_patterns, re.I)):
         element.decompose()
 
@@ -216,6 +308,29 @@ def extract_structured_from_html(html: str, url: str):
     h1 = clean_text(h1_tag.get_text()) if h1_tag else ""
 
     sections = extract_sections(main_container)
+    sections.extend(maybe_add_template_section(url, main_container, h1))
+    sections.extend(jsonld_sections)
+
+    deduped_sections = []
+    seen = set()
+    for section in sections:
+        heading = clean_text(section.get("heading", ""))
+        text = clean_text(section.get("text", ""))
+        if not text:
+            continue
+        key = (heading, text)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped_sections.append({"heading": heading or "Allgemein", "text": text})
+
+    sections = deduped_sections
+
+    if not sections:
+        fallback_text = clean_text(main_container.get_text(separator=" ", strip=True))
+        if fallback_text:
+            sections = [{"heading": h1 or "Allgemein", "text": fallback_text}]
+
     content = clean_text(" ".join(section["text"] for section in sections))
     headings = [section["heading"] for section in sections if section.get("heading")]
 
