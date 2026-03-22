@@ -37,7 +37,7 @@
                                   ▼
                     ┌──────────────────────────┐
                     │ Search API (FastAPI)     │
-                    │ Port 8000                │
+                    │ Port 8055                │
                     └──────────────────────────┘
 ```
 
@@ -56,7 +56,7 @@
 - **qdrant-indexer**: Indexes vectors into Qdrant
 
 ### API & Orchestration
-- **search-api**: FastAPI server (Port 8000)
+- **search-api**: FastAPI server (Port 8055)
 - **scheduler**: APScheduler (orchestrates everything)
 
 ### Data Store
@@ -98,7 +98,7 @@ docker-compose -f services/docker-compose.prod.yml ps
 ```
 
 ### 4. Access services
-- **Search API**: http://localhost:8000
+- **Search API**: http://localhost:8055
 - **Qdrant Dashboard**: http://localhost:6333/dashboard
 
 ## 📅 Automatic Updates
@@ -157,7 +157,7 @@ Raw Data (Websites, PDFs, Timetables)
            ▼
     [Search API]
            ▼
-    http://localhost:8000
+       http://localhost:8055
 ```
 
 ## 🔧 Configuration

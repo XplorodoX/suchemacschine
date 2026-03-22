@@ -154,7 +154,7 @@ services:
       dockerfile: Dockerfile
     container_name: search-api-prod
     ports:
-      - "8000:8000"
+      - "8055:8000"
     environment:
       - QDRANT_HOST=qdrant-db
       - QDRANT_PORT=6333

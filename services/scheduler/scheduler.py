@@ -19,6 +19,11 @@ QDRANT_STARTUP_TIMEOUT_SECONDS = int(os.getenv("QDRANT_STARTUP_TIMEOUT_SECONDS",
 PIPELINE_NETWORK = os.getenv("PIPELINE_NETWORK", "suchemacschine_net")
 DATA_VOLUME = os.getenv("PIPELINE_DATA_VOLUME", "suchemacschine_scrape_data")
 PDF_VOLUME = os.getenv("PIPELINE_PDF_VOLUME", "suchemacschine_pdf_sources")
+PARALLEL_SCRAPER_STEPS = {
+    "website-scraper",
+    "pdf-indexer",
+    "timetable-scraper",
+}
 
 SERVICE_PIPELINE = [
     {
@@ -175,6 +180,96 @@ def run_step(step: dict) -> bool:
     return False
 
 
+def start_step_container(step: dict):
+    """Start one step container asynchronously and return the container object."""
+    service_name = step["name"]
+    image_name = step["image"]
+    resolved_image_name = resolve_local_image_name(image_name)
+    image_candidates = [resolved_image_name]
+    if not resolved_image_name.startswith("localhost/"):
+        image_candidates = [f"localhost/{resolved_image_name}", resolved_image_name]
+
+    deduped_candidates = []
+    for candidate in image_candidates:
+        if candidate not in deduped_candidates:
+            deduped_candidates.append(candidate)
+
+    volumes = step.get("volumes", {})
+    last_error = None
+
+    print(f"\n-> {step['description']} ({service_name}) [parallel start]")
+    print(f"Using image candidates: {deduped_candidates}")
+
+    for candidate in deduped_candidates:
+        try:
+            print(f"Trying image: {candidate}")
+            container = client.containers.run(
+                image=candidate,
+                name=f"{service_name}_run_{int(datetime.now().timestamp())}",
+                volumes=volumes,
+                network=PIPELINE_NETWORK,
+                remove=False,
+                detach=True,
+            )
+            return container
+        except Exception as exc:
+            last_error = exc
+            print(f"Step start error with image {candidate}: {exc}")
+
+    print(f"Step failed to start ({service_name}): {last_error}")
+    return None
+
+
+def wait_for_step_container(step: dict, container) -> bool:
+    """Wait for a started container, print logs, and clean up."""
+    service_name = step["name"]
+    try:
+        result = container.wait()
+        exit_code = result.get("StatusCode", 1)
+
+        logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="ignore").strip()
+        if logs:
+            print(logs)
+
+        if exit_code != 0:
+            print(f"Step failed with exit code {exit_code}: {service_name}")
+            return False
+
+        print(f"Step completed: {service_name}")
+        return True
+    except Exception as exc:
+        print(f"Step error while waiting ({service_name}): {exc}")
+        return False
+    finally:
+        try:
+            container.remove(force=True)
+        except Exception:
+            pass
+
+
+def run_parallel_steps(steps: list) -> bool:
+    """Run multiple step containers in parallel and wait for all to finish."""
+    running = []
+
+    for step in steps:
+        container = start_step_container(step)
+        if container is None:
+            for _, running_container in running:
+                try:
+                    running_container.remove(force=True)
+                except Exception:
+                    pass
+            return False
+        running.append((step, container))
+
+    all_ok = True
+    for step, container in running:
+        if not wait_for_step_container(step, container):
+            all_ok = False
+
+    return all_ok
+
+
 def run_pipeline() -> bool:
     """Execute the full data pipeline and return True on success."""
     print(f"\n{'=' * 60}")
@@ -185,7 +280,16 @@ def run_pipeline() -> bool:
         print("Pipeline aborted: Qdrant is unavailable")
         return False
 
-    for step in SERVICE_PIPELINE:
+    scraper_steps = [step for step in SERVICE_PIPELINE if step["name"] in PARALLEL_SCRAPER_STEPS]
+    downstream_steps = [step for step in SERVICE_PIPELINE if step["name"] not in PARALLEL_SCRAPER_STEPS]
+
+    if scraper_steps:
+        print("\nRunning scraper stage in parallel...")
+        if not run_parallel_steps(scraper_steps):
+            print("Pipeline aborted due to failing parallel scraper stage")
+            return False
+
+    for step in downstream_steps:
         if not run_step(step):
             print("Pipeline aborted due to failing step")
             return False

@@ -142,13 +142,13 @@ case "${1:-help}" in
         
         echo ""
         echo "🌐 Services:"
-        echo "  Search API: http://localhost:8000"
+        echo "  Search API: http://localhost:8055"
         echo "  Qdrant: http://localhost:6333/dashboard"
         
         echo ""
         echo "📊 Quick Health Checks:"
         echo -n "  API: "
-        curl -s http://localhost:8000/docs > /dev/null && echo "✅ OK" || echo "❌ DOWN"
+        curl -s http://localhost:8055/docs > /dev/null && echo "✅ OK" || echo "❌ DOWN"
         echo -n "  Qdrant: "
         curl -s http://localhost:6333/health > /dev/null && echo "✅ OK" || echo "❌ DOWN"
         ;;

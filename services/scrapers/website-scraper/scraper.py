@@ -22,6 +22,12 @@ TARGET_URLS = os.getenv("TARGET_URLS", "https://www.hs-aalen.de").split(",")
 MAX_DEPTH = int(os.getenv("MAX_DEPTH", "3"))
 TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", 60))
 
+NON_HTML_EXTENSIONS = (
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".zip", ".rar", ".7z", ".jpg", ".jpeg", ".png", ".gif", ".webp",
+    ".mp4", ".mp3", ".wav"
+)
+
 def create_session():
     """Create requests session with retries."""
     session = requests.Session()
@@ -64,6 +70,11 @@ def extract_links(html: str, base_url: str) -> List[str]:
     
     return links
 
+def is_probably_non_html_url(url: str) -> bool:
+    """Check URL extension to avoid fetching binary documents as web pages."""
+    path = urlparse(url).path.lower()
+    return path.endswith(NON_HTML_EXTENSIONS)
+
 def scrape_website():
     """Main scraping function."""
     print(f"🕷️  Starting website scraper at {datetime.now()}")
@@ -86,17 +97,30 @@ def scrape_website():
         
         visited.add(url)
         print(f"   [{len(visited)}] Scraping: {url}")
+
+        if is_probably_non_html_url(url):
+            print(f"   ⏭️  Skipping non-HTML resource: {url}")
+            continue
         
         try:
             response = session.get(url, timeout=10)
             response.raise_for_status()
+
+            content_type = response.headers.get("Content-Type", "").lower()
+            if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
+                print(f"   ⏭️  Skipping non-HTML content-type ({content_type or 'unknown'}): {url}")
+                continue
             
             text = extract_text(response.text)
+            soup = BeautifulSoup(response.text, 'lxml')
+            title = url
+            if soup.title and soup.title.string:
+                title = soup.title.string.strip() or url
             
             if len(text.strip()) > 100:  # Only save if meaningful content
                 results.append({
                     "url": url,
-                    "title": BeautifulSoup(response.text, 'lxml').title.string or url,
+                    "title": title,
                     "text": text,
                     "scraped_at": datetime.now().isoformat(),
                     "source": "website"
