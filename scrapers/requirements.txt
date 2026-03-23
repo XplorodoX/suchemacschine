@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+qdrant-client
+requests
+httpx
+beautifulsoup4
+playwright
+aiofiles
+numpy
+sentence-transformers
+torch --extra-index-url https://download.pytorch.org/whl/cpu

@@ -6,26 +6,62 @@ services:
     container_name: qdrant-service
     ports:
       - "6333:6333"
-      - "6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
     restart: always
 
-  search-api:
+  backend:
     build:
-      context: ./scripts
+      context: ./backend
       dockerfile: Dockerfile
     container_name: search-api-service
     ports:
       - "8055:8000"
+    volumes:
+      - ./data:/app/data
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - OLLAMA_URL=http://host.containers.internal:11434/api/generate
+      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
       - OLLAMA_MODEL=deepseek-r1:8b
+      - GITHUB_TOKEN=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
+      - GITHUB_MODEL=mistral-ai/Ministral-3B-Instruct
+      - RATE_LIMIT_PER_HOUR=100
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - qdrant
     restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: search-frontend-service
+    ports:
+      - "8056:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=https://campusindex.8xc.de
+    restart: always
+
+  scrapers:
+    build:
+      context: ./scrapers
+      dockerfile: Dockerfile
+    container_name: search-scrapers-service
+    volumes:
+      - ./data:/app/data
+      - ./scrapers:/app
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["parallel"]
+    profiles:
+      - scrapers
+    depends_on:
+      - qdrant
 
 volumes:
   qdrant_storage:
