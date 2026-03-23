@@ -6,6 +6,7 @@ from datetime import datetime
 import asyncio
 import concurrent.futures
 from typing import List, Optional, Dict
+from urllib.parse import urlparse
 
 import requests
 from fastapi import FastAPI, Header, HTTPException, Query, Request
@@ -581,7 +582,53 @@ def boost_and_rank(
     results = [r for r in results if r["score"] >= RELEVANCE_MIN_SCORE]
     results = sorted(results, key=lambda x: x["score"], reverse=True)
 
-    # 2. LLM Re-ranking (Only if requested)
+    # 2. Result Diversity & Grouping
+    # Limit number of results from the same source to avoid clutter
+    diverse_results = []
+    source_counts = {}
+    seen_titles = set()
+    
+    for r in results:
+        # Determine source key
+        url_parsed = urlparse(r.get("url", ""))
+        netloc = url_parsed.netloc
+        source_key = netloc
+        
+        # For PDFs, use filename as source key
+        if r.get("type") == "pdf":
+            source_key = f"pdf:{r.get('filename', url_parsed.path)}"
+        
+        # For AStA which shares a domain, split by path if helpful, or just treat as one
+        if "vs-hs-aalen.de" in netloc:
+            source_key = "asta"
+            
+        # Title-based Dedup (Case-insensitive)
+        title = r.get("title", "").strip().lower()
+        if title in seen_titles and title:
+            continue # Skip identical titles
+            
+        # Grouping Limit
+        count = source_counts.get(source_key, 0)
+        max_per_source = 2
+        
+        # Official homepage/person profiles get more slack
+        if r.get("type") == "webpage" and "/person/" in r.get("url", ""):
+            max_per_source = 3
+            
+        if count < max_per_source:
+            diverse_results.append(r)
+            source_counts[source_key] = count + 1
+            seen_titles.add(title)
+        else:
+            # We skip it for now to prioritize other sources.
+            # If we end up with too few results, we could relax this.
+            continue
+            
+    # Final check: if we have too few results after aggressive diversity filtering, 
+    # we could add some back, but usually 10-20 is enough.
+    results = diverse_results[:total_limit]
+
+    # 3. LLM Re-ranking (Only if requested)
     if not include_rerank:
         return results
 
