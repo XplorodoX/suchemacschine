@@ -164,12 +164,41 @@ def find_pdf_links(html_content: str, page_url: str) -> List[str]:
     return unique_links
 
 
+def chunk_text(text: str, max_chars: int = 1500, overlap: int = 200) -> List[str]:
+    """Split text into overlapping chunks for better vector search results."""
+    if not text:
+        return []
+    
+    # Remove multiple spaces and newlines
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    if len(text) <= max_chars:
+        return [text]
+    
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + max_chars
+        # Try to find a space near the end to avoid splitting words
+        if end < len(text):
+            space_pos = text.rfind(' ', start, end)
+            if space_pos > start + (max_chars // 2):
+                end = space_pos
+        
+        chunks.append(text[start:end].strip())
+        start = end - overlap
+        if start >= len(text) - overlap:
+            break
+            
+    return chunks
+
+
 def extract_pdfs_from_page(html_content: str, page_url: str, session: requests.Session) -> List[Dict]:
     """
     Extract all PDFs from a page and return their content with metadata.
     
     Returns:
-        List of dicts with keys: url, text, filename
+        List of dicts with keys: url, text, chunks, filename
     """
     pdf_links = find_pdf_links(html_content, page_url)
     pdf_data = []
@@ -183,11 +212,16 @@ def extract_pdfs_from_page(html_content: str, page_url: str, session: requests.S
             continue
 
         filename = urlparse(pdf_url).path.split("/")[-1]
+        chunks = chunk_text(text)
+        
         pdf_data.append({
             "url": pdf_url,
             "filename": filename,
             "text": text,
+            "chunks": chunks
         })
-        print(f"    ✓ Added PDF ({len(text)} chars from {filename})")
+        print(f"    ✓ Added PDF ({len(text)} chars, {len(chunks)} chunks from {filename})")
 
     return pdf_data
+
+import re # Ensure re is imported

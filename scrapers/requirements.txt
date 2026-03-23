@@ -9,3 +9,8 @@ aiofiles
 numpy
 sentence-transformers
 torch --extra-index-url https://download.pytorch.org/whl/cpu
+pypdf
+pdfplumber
+pytesseract
+pdf2image
+Pillow

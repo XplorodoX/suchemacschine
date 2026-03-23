@@ -380,27 +380,27 @@ def lexical_relevance(query: str, text: str, url: str, title: str = "") -> float
     matched = {tok for tok in q_tokens if tok in haystack}
     coverage = len(matched) / len(q_tokens)
 
-    # Title match bonus: give extra weight if query terms appear in the title
+    # Title match bonus: give SIGNIFICANT weight if query terms appear in the title
     title_norm = normalize_text(title)
     title_matches = sum(1 for tok in q_tokens if tok in title_norm)
-    title_bonus = 0.15 * (title_matches / len(q_tokens)) if q_tokens else 0.0
+    title_bonus = 0.30 * (title_matches / len(q_tokens)) if q_tokens else 0.0
 
     phrase_bonus = 0.0
     normalized_query = normalize_text(query)
     if len(normalized_query) >= 6 and normalized_query in haystack:
-        phrase_bonus = 0.2
+        phrase_bonus = 0.25
 
     # Completeness bonus: if ALL query tokens match, give a significant boost
     completeness_bonus = 0.0
     if len(matched) == len(q_tokens) and len(q_tokens) > 1:
-        completeness_bonus = 0.1
+        completeness_bonus = 0.15
 
     long_token_bonus = 0.0
     long_tokens = [t for t in q_tokens if len(t) >= 6]
     if long_tokens:
         long_matches = sum(1 for t in long_tokens if t in haystack)
-        long_token_bonus = 0.1 * (long_matches / len(long_tokens))
-    score = (0.5 * coverage) + title_bonus + phrase_bonus + completeness_bonus + long_token_bonus
+        long_token_bonus = 0.15 * (long_matches / len(long_tokens))
+    score = (0.4 * coverage) + title_bonus + phrase_bonus + completeness_bonus + long_token_bonus
     return max(0.0, min(1.0, score))
 
 
@@ -478,29 +478,20 @@ def hybrid_search(
     all_results.extend(pdf_results)
     all_results.extend(timetable_results)
 
-    # Global Deduplication by URL or Text Content
+    # Global Deduplication by URL first, then by Text Content
     unique_results = {}
     for res in all_results:
         url = res.payload.get("url", "").rstrip("/")
-        # For timetables, dedup by content if the URL is the same or missing
-        # Many timetables point to the same "Starplan" URL but have different course codes
-        # We want to keep diversity but avoid 10 nearly identical rows.
-        payload_type = res.payload.get('type', '')
-        if not payload_type:
-            source = res.payload.get('source', '')
-            if source == 'starplan_timetable' or bool(res.payload.get('day') and res.payload.get('time')):
-                payload_type = 'timetable'
+        # For timetables, if URL is missing, use a text-id
+        if not url and (res.payload.get('type') == 'timetable' or res.payload.get('day')):
+             url = f"t-id:{res.payload.get('text', '')[:120]}"
 
-        text_content = res.payload.get("text", res.payload.get("content", ""))
-        text_id = text_content[:150].strip()
+        if not url: continue
         
-        # Complex key: URL + category + a snippet of text
-        # This allows the same URL to appear if content is different (e.g. sections)
-        # but prevents identical text from different "copies" of the same event.
-        dedup_key = f"{url}|{payload_type}|{text_id}"
-        
-        if dedup_key not in unique_results or res.score > unique_results[dedup_key].score:
-            unique_results[dedup_key] = res
+        # Primary Dedup: Just the URL. This removes duplicate profiles from different collections.
+        # We always keep the version with the highest score.
+        if url not in unique_results or res.score > unique_results[url].score:
+            unique_results[url] = res
             
     # Final sort
     merged = sorted(unique_results.values(), key=lambda x: x.score, reverse=True)
@@ -567,6 +558,16 @@ def boost_and_rank(
         res["score"] = final_score
         res["vector_score"] = float(raw_vector)
         res["lexical_score"] = float(lexical)
+
+        # Lexical Anchoring: If query has significant terms (e.g. "Heinlein"), 
+        # and result has ZERO lexical match (e.g. "Heilmann"), downrank significantly.
+        # This prevents vector similarity from overwhelming lexical facts.
+        q_tokens = tokenize(query)
+        significant_query = any(len(t) >= 5 for t in q_tokens)
+        if significant_query and lexical < 0.05:
+            # If it's a weak lexical match for a specific query, pull it down.
+            res["score"] -= 0.40
+            res["lexical_mismatch"] = True
 
     if strict_match:
         # Don't apply strict matching for timetable, website, and ASTA results (they have different data structure)
