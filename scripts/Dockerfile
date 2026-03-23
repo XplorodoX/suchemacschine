@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM docker.io/library/python:3.9-slim
 
 WORKDIR /app
 
@@ -14,7 +14,9 @@ RUN pip install --no-cache-dir \
     qdrant-client \
     requests \
     aiofiles \
-    numpy
+    numpy \
+    sentence-transformers \
+    torch --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Copy the application code
 COPY app.py .
