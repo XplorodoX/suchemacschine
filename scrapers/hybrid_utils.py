@@ -12,13 +12,15 @@ def normalize_text(t: str) -> str:
 def tokenize(t: str) -> List[str]:
     return [w for w in re.findall(r"[a-zA-Z0-9äöüß]{2,}", normalize_text(t)) if w not in GERMAN_STOPWORDS]
 
+import hashlib
 def sparse_encode(text: str):
     tokens = tokenize(text)
     if not tokens:
         return {"indices": [], "values": []}
     counts = {}
     for tok in tokens:
-        idx = hash(tok) % 1000000
+        # Deterministic hash
+        idx = int(hashlib.md5(tok.encode()).hexdigest(), 16) % 1000000
         counts[idx] = counts.get(idx, 0) + 1.0
     return {
         "indices": list(counts.keys()),

@@ -78,8 +78,8 @@ export default function Home() {
   };
 
   const [options, setOptions] = useState({
-    provider: 'auto',
-    model: '',
+    provider: 'github',
+    model: 'openai/gpt-5',
     semester: 'SoSe26',
     strict: true,
     summary: true,
@@ -151,17 +151,17 @@ export default function Home() {
       const data: SearchResponse = await res.json();
       
       setResults(data.results);
-      setSummary(undefined); // Reset summary before async load
+      setSummary(data.summary); // Use summary from search!
       setTotalResults(data.total_results);
       setSources(data.sources || []);
       setLlmEnabled(data.llm_enabled);
       setResponseTime(Math.round(performance.now() - start));
       setCurrentModel(data.model);
       setCurrentProvider(data.provider);
-      setIsLoading(false); // Results are now visible!
+      setIsLoading(false);
 
-      // Step 2: Asynchronously fetch summary if enabled
-      if (options.summary && data.results.length > 0) {
+      // Only fetch summary if search didn't provide one and it's enabled
+      if (options.summary && !data.summary && data.results.length > 0) {
         setLoadingSummary(true);
         try {
           const sumRes = await fetch(`${API_BASE_URL}/api/summarize`, {
@@ -258,10 +258,7 @@ export default function Home() {
                         onChange={(e) => setOptions(prev => ({ ...prev, provider: e.target.value }))}
                         className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2 text-sm outline-none focus:border-[var(--accent)]"
                       >
-                        <option value="auto">Auto</option>
-                        <option value="ollama">Ollama</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="github">GitHub</option>
+                        <option value="github">Auto (GitHub)</option>
                         <option value="none">Keine KI</option>
                       </select>
                     </div>

@@ -49,8 +49,8 @@ def index_file(filename, source_name, p_type="webpage"):
                 text = record.get('content') or record.get('text') or record.get('full_text') or record.get('description') or ""
                 title = record.get('title') or record.get('modul') or record.get('lecture_info') or "Unbenannt"
                 
-                # Full text for embedding
-                full_text = f"{title}\n{text}\n{record.get('program', '')}\n{record.get('raum', '')}"
+                # Full text with proper padding for better tokenization
+                full_text = f"{title} {text} {record.get('program', '')} {record.get('raum', '')} {source_name}"
                 
                 # Create unique UUID
                 point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{source_name}_{i}"))
