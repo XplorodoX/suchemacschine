@@ -104,46 +104,92 @@ def rerank_with_llm(q: str, results: list, m: str, p: str, key: str = "") -> lis
     except: pass
     return results
 
-def parse_filters(q: str, m: str, p: str, key: str = "") -> dict:
-    prompt = f"Suche: {q}\nFilter extrahieren. source (asta, website, pdf, starplan), semester. ZEIT: morgen/heute? NUR JSON: {{'source': '...', 'type': '...', 'start_range': 'ISO-DATE-START', 'end_range': 'ISO-DATE-END'}}"
-    res = call_llm(prompt, m, p, key)
-    filters = {}
+def parse_intent_and_filters(q: str, m: str, p: str, key: str = "") -> dict:
+    """Classify user intent and extract entities using Few-Shot prompting."""
+    prompt = f"""Du bist ein präziser Router für die Hochschul-KI Aalen. Deine Aufgabe ist es, die Nutzeranfrage zu klassifizieren und Entitäten zu extrahieren. Antworte AUSSCHLIESSLICH im JSON-Format.
+
+Kategorien:
+- PERSON: Suche nach Professoren, Mitarbeitern, Sprechstunden.
+- TIMETABLE: Vorlesungen, Prüfungsphasen, Termine aus Starplan.
+- DOCUMENT: SPO, Satzungen, Anträge, Formulare (PDF-Fokus).
+- GENERAL: Mensa, Parken, allgemeine Campus-Infos.
+
+Beispiele:
+Nutzer: "Wann hat Prof. Müller Sprechstunde?"
+JSON: {{"intent": "PERSON", "entity": "Müller", "boost_pdf": false, "time_filter": null}}
+
+Nutzer: "Ich brauche die SPO für Informatik 2023"
+JSON: {{"intent": "DOCUMENT", "entity": "SPO Informatik", "boost_pdf": true, "time_filter": "2023"}}
+
+Nutzer: "Was gibt es heute in der Mensa?"
+JSON: {{"intent": "GENERAL", "entity": "Mensa", "boost_pdf": false, "time_filter": "today"}}
+
+Nutzer: {q}
+JSON:"""
     
-    # Keyword Fallback
-    ql = q.lower()
-    if "asta" in ql: filters["source"] = "asta"
-    if "pdf" in ql: filters["type"] = "pdf"
-    if "starplan" in ql: filters["source"] = "starplan"
-    if "heute" in ql or "jetzt" in ql:
-        now = datetime.now()
-        filters["start_range"] = int(now.replace(hour=0, minute=0, second=0).timestamp())
-        filters["end_range"] = int(now.replace(hour=23, minute=59, second=59).timestamp())
-    if "morgen" in ql:
-        import datetime as dt
-        tomorrow = datetime.now() + dt.timedelta(days=1)
-        filters["start_range"] = int(tomorrow.replace(hour=0, minute=0, second=0).timestamp())
-        filters["end_range"] = int(tomorrow.replace(hour=23, minute=59, second=59).timestamp())
+    res = call_llm(prompt, m, p, key)
+    data = {"intent": "GENERAL", "entity": q}
     
     # LLM Parsing
     try:
         res_clean = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
         match = re.search(r"\{.*\}", res_clean, re.DOTALL)
         if match:
-            llm_f = json.loads(match.group(0).replace("'", '"'))
-            filters.update(llm_f)
+            llm_data = json.loads(match.group(0).replace("'", '"'))
+            data.update(llm_data)
     except: pass
-
-    # FINAL CONVERSION to int timestamps
-    for k in ["start_range", "end_range"]:
-        if k in filters and isinstance(filters[k], str):
-            try: 
-                dt_str = filters[k].replace('Z', '+00:00')
-                filters[k] = int(datetime.fromisoformat(dt_str).timestamp())
-            except: pass
-        if k in filters and isinstance(filters[k], (int, float)):
-            filters[k] = int(filters[k])
             
-    return filters
+    return data
+
+def custom_weighted_rrf(dense_hits, sparse_hits, k=60, dense_weight=1.0, sparse_weight=1.0):
+    """
+    Kombiniert Ergebnisse aus Vektor- (dense) und Keyword-Suche (sparse).
+    Erhöhe sparse_weight, wenn der Intent 'PERSON' oder 'DOCUMENT' ist.
+    """
+    scores = {}
+    docs = {}
+    
+    # Verarbeite Dense Ergebnisse
+    for rank, hit in enumerate(dense_hits):
+        doc_id = hit.id
+        scores[doc_id] = scores.get(doc_id, 0) + dense_weight * (1 / (k + rank + 1))
+        docs[doc_id] = hit
+        
+    # Verarbeite Sparse Ergebnisse
+    for rank, hit in enumerate(sparse_hits):
+        doc_id = hit.id
+        scores[doc_id] = scores.get(doc_id, 0) + sparse_weight * (1 / (k + rank + 1))
+        docs[doc_id] = hit
+        
+    # Sortiere nach aggregiertem Score
+    sorted_ids = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    
+    # Rekonstruiere Ergebnisliste
+    final_results = []
+    for doc_id, score in sorted_ids:
+        hit = docs[doc_id]
+        payload = hit.payload
+        final_results.append({
+            "score": score,
+            "url": payload.get("url"),
+            "text": payload.get("content") or payload.get("text") or "",
+            "title": payload.get("title") or "Seite",
+            "type": payload.get("type", "webpage"),
+            "source": payload.get("source", "hs_aalen"),
+            "start_time": payload.get("start_time"),
+            "raum": payload.get("raum"),
+            "studiengang": payload.get("studiengang")
+        })
+    return final_results
+
+def expand_query(q: str, m: str, p: str, key: str = "") -> str:
+    prompt = f"Suche: {q}\nGib 3-5 zusätzliche, hochrelevante deutsche Suchbegriffe oder Synonyme an, um die Suche zu erweitern. Antworte NUR mit den Begriffen, kommagetrennt."
+    res = call_llm(prompt, m, p, key, timeout=10)
+    if res and "UNBEKANNT" not in res.upper():
+        clean_res = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
+        expanded = f"{q}, {clean_res}"
+        return expanded
+    return q
 
 def fetch_parent_context(results: list, limit: int = 3) -> list:
     """Fetch additional lectures for the same day/program if a lecture is found."""
@@ -180,73 +226,104 @@ def fetch_parent_context(results: list, limit: int = 3) -> list:
         except: pass
     return results
 
-def hybrid_search(query: str, filters: dict = None, limit: int = 200) -> List:
+def optimized_hybrid_search(query: str, intent_data: dict, limit: int = 100) -> List:
     if not client: return []
     try:
         dense_vec = model.encode(query).tolist()
         sparse_vec = sparse_encode(query)
         
-        # Build filter
+        # Build filter (simplified)
         q_filter = None
-        if filters:
-            must = []
-            if "source" in filters: must.append(models.FieldCondition(key="source", match=models.MatchValue(value=filters["source"])))
-            if "type" in filters: must.append(models.FieldCondition(key="type", match=models.MatchValue(value=filters["type"])))
-            if "start_range" in filters or "end_range" in filters:
-                must.append(models.FieldCondition(
-                    key="start_time", 
-                    range=models.Range(
-                        gte=filters.get("start_range"),
-                        lte=filters.get("end_range")
-                    )
-                ))
-            if must: q_filter = models.Filter(must=must)
- 
-        return client.query_points(
+        
+        # Weights based on Intent
+        intent = intent_data.get("intent", "GENERAL").upper()
+        d_weight, s_weight = 1.0, 1.0
+        if intent in ["PERSON", "DOCUMENT"]:
+            s_weight = 2.0  # Boost keywords for specific names or document types
+            
+        # Fetch separate lists for custom RRF
+        dense_hits = client.query_points(
             collection_name=COLLECTION_NAME,
-            prefetch=[
-                models.Prefetch(query=sparse_vec, using="sparse", limit=limit),
-                models.Prefetch(query=dense_vec, using="dense", limit=limit),
-            ],
-            query=models.FusionQuery(fusion=models.Fusion.RRF),
-            query_filter=q_filter,
-            limit=limit
+            query=dense_vec,
+            using="dense",
+            limit=limit,
+            query_filter=q_filter
         ).points
+        
+        sparse_hits = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=sparse_vec,
+            using="sparse",
+            limit=limit,
+            query_filter=q_filter
+        ).points
+        
+        return custom_weighted_rrf(dense_hits, sparse_hits, dense_weight=d_weight, sparse_weight=s_weight)
+        
     except Exception as e:
         print(f"Hybrid search failed: {e}")
-        dense_vec = model.encode(query).tolist()
-        try: return client.query_points(collection_name="hs_aalen_search", query=dense_vec, limit=limit).points
-        except: return []
+        return []
 
-def boost_and_rank(q: str, results: list) -> list:
+def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
     tokens = tokenize(q)
+    q_low = q.lower()
+    intent = (intent_data or {}).get("intent", "general")
+    
     for r in results:
-        text = normalize_text(r.get("text", "") + " " + r.get("title", ""))
-        lex_score = sum(1 for tok in tokens if tok in text) / (len(tokens) or 1)
-        # Weighting: 50% Hybrid Score, 50% Lexical Match
-        r["score"] = (0.5 * r["score"]) + (0.5 * lex_score)
+        title = (r.get("title") or "").lower()
+        url = (r.get("url") or "").lower()
+        text = normalize_text(r.get("text", "") + " " + title)
+        source = r.get("source", "")
+        res_type = r.get("type", "")
         
-        # Source Boost: Prefer official website/news over 100s of timetable events
-        if r.get("source") in ["hs_aalen", "asta"]:
-            r["score"] += 0.3
+        # Lexical Match Score
+        lex_score = sum(2.0 if tok in title else (1.5 if tok in url else 1.0) for tok in tokens if tok in text) / (len(tokens) or 1)
+        r["score"] = (0.35 * r["score"]) + (0.65 * lex_score)
         
-        # Global de-boost for timetable to prevent spam
-        if r.get("type") == "timetable":
-            r["score"] -= 0.3
+        # Exact Phrase Boost
+        if q_low in title: r["score"] += 1.5
+        
+        # Intent-Based Dynamic Boosting
+        if intent == "timetable":
+            if res_type == "timetable": r["score"] += 1.2
+            else: r["score"] -= 0.3
+        elif intent == "person":
+            if source == "hs_aalen" and res_type == "webpage": r["score"] += 1.0
+            if "prof" in title or "rector" in title or "rektor" in title: r["score"] += 1.0
+        elif intent == "document":
+            if res_type == "pdf": r["score"] += 1.5
+            if any(k in title for k in ["satzung", "ordnung"]): r["score"] += 0.8
+        
+        # source/type defaults
+        if source in ["hs_aalen", "asta"]: r["score"] += 0.3
             
-        if q.lower() in (r.get("url") or "").lower(): r["score"] += 0.2
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
 def generate_summary(q: str, results: list, m: str, p: str, key: str = "") -> str:
-    # PERMISSIVE THRESHOLD FOR RRF
-    if not results or results[0]["score"] < 0.01: return ""
+    # PERMISSIVE THRESHOLD: even low RRF scores are valid
+    if not results or results[0]["score"] < 0.0001: 
+        print(f"Summary skipped: No results or score too low ({results[0]['score'] if results else 'N/A'})")
+        return ""
+    
+    # Increase snippet count for better context
     snippets = ""
-    for i, r in enumerate(results[:3]):
-        snippets += f"[{i+1}] {r.get('url','')}: {r.get('text','')[:300]}\n\n"
-    p_prompt = f"Beantworte {q} basierend auf:\n{snippets}\nRegeln: Kurz, Du-Form, Quellen [1], [2]. Falls keine Info: UNBEKANNT"
+    for i, r in enumerate(results[:5]):
+        snippets += f"[{i+1}] {r.get('url','')}: {r.get('text','')[:400]}\n\n"
+        
+    p_prompt = f"""Anfrage: {q}
+Basierend auf diesen Informationen der Hochschule Aalen:
+{snippets}
+
+Beantworte die Anfrage kurz und präzise in der Du-Form. 
+Nutze Quellenangaben wie [1], [2]. 
+Falls die Information absolut nicht vorhanden ist, antworte NUR mit 'UNBEKANNT'."""
+
     res = call_llm(p_prompt, m, p, key)
-    res = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
-    return "" if "UNBEKANNT" in res.upper() else res
+    res_clean = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
+    
+    if "UNBEKANNT" in res_clean.upper() and len(res_clean) < 20:
+        return ""
+    return res_clean
 
 @app.get("/api/models")
 async def api_models(provider: str = Query("auto"), x_key: Optional[str] = Header(None, alias="X-OpenAI-Key")):
@@ -257,29 +334,18 @@ async def api_search(q: str = Query(...), provider: str = Query("auto"), model_n
     res_p = resolve_provider(provider, x_key or "")
     res_m = model_name or GITHUB_MODEL
     
-    # Phase 4: Self-Querying
-    filters = parse_filters(q, res_m, res_p, x_key or "")
+    # Phase 1: Expansion & Intent Routing
+    expanded_q = expand_query(q, res_m, res_p, x_key or "")
+    intent_data = parse_intent_and_filters(q, res_m, res_p, x_key or "")
     
-    raw = hybrid_search(q, filters, 200)
-    results = []
-    for p in raw:
-        payload = p.payload
-        results.append({
-            "score": float(p.score),
-            "url": payload.get("url"),
-            "text": payload.get("content") or payload.get("text") or "",
-            "title": payload.get("title") or "Seite",
-            "type": payload.get("type", "webpage"),
-            "source": payload.get("source", "hs_aalen"),
-            "start_time": payload.get("start_time"),
-            "raum": payload.get("raum"),
-            "studiengang": payload.get("studiengang")
-        })
-    ranked = boost_and_rank(q, results)
+    # Custom Weighted RRF
+    results = optimized_hybrid_search(expanded_q, intent_data, 100)
+    
+    ranked = boost_and_rank(q, results, intent_data)
     contextualized = fetch_parent_context(ranked)
     reranked = rerank_with_llm(q, contextualized, res_m, res_p, x_key or "")
     summary = generate_summary(q, reranked, res_m, res_p, x_key or "")
-    return {"results": reranked[:10], "total_results": len(ranked), "summary": summary, "model": res_m, "provider": res_p, "filters": filters}
+    return {"results": reranked[:10], "total_results": len(ranked), "summary": summary, "model": res_m, "provider": res_p, "filters": intent_data, "expanded_query": expanded_q}
 
 @app.get("/api/health")
 async def health(): return {"status": "ok"}
