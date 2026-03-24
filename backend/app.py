@@ -121,9 +121,8 @@ def rerank_with_llm(q: str, results: list, m: str, p: str, key: str = "") -> lis
     return results
 
 def parse_filters(q: str, m: str, p: str, key: str = "") -> dict:
-    prompt = f"Suche: {q}\nFiltern nach source (asta, website, pdf, starplan) oder semester. NUR JSON: {{'source': '...', 'type': '...'}}"
+    prompt = f"Suche: {q}\nFilter extrahieren. source (asta, website, pdf, starplan), semester. ZEIT: morgen/heute? NUR JSON: {{'source': '...', 'type': '...', 'start_range': 'ISO-DATE-START', 'end_range': 'ISO-DATE-END'}}"
     res = call_llm(prompt, m, p, key)
-    print(f"DEBUG LLM Filter ('{q}'): {res}")
     filters = {}
     
     # Keyword Fallback
@@ -131,6 +130,15 @@ def parse_filters(q: str, m: str, p: str, key: str = "") -> dict:
     if "asta" in ql: filters["source"] = "asta"
     if "pdf" in ql: filters["type"] = "pdf"
     if "starplan" in ql: filters["source"] = "starplan"
+    if "heute" in ql or "jetzt" in ql:
+        now = datetime.now()
+        filters["start_range"] = int(now.replace(hour=0, minute=0, second=0).timestamp())
+        filters["end_range"] = int(now.replace(hour=23, minute=59, second=59).timestamp())
+    if "morgen" in ql:
+        import datetime as dt
+        tomorrow = datetime.now() + dt.timedelta(days=1)
+        filters["start_range"] = int(tomorrow.replace(hour=0, minute=0, second=0).timestamp())
+        filters["end_range"] = int(tomorrow.replace(hour=23, minute=59, second=59).timestamp())
     
     # LLM Parsing
     try:
@@ -138,9 +146,51 @@ def parse_filters(q: str, m: str, p: str, key: str = "") -> dict:
         match = re.search(r"\{.*\}", res_clean, re.DOTALL)
         if match:
             llm_f = json.loads(match.group(0).replace("'", '"'))
+            # Convert LLM ISO dates to timestamps if they exist
+            for k in ["start_range", "end_range"]:
+                if k in llm_f and isinstance(llm_f[k], str):
+                    try: 
+                        dt_str = llm_f[k].replace('Z', '+00:00')
+                        llm_f[k] = int(datetime.fromisoformat(dt_str).timestamp())
+                    except: pass
             filters.update(llm_f)
     except: pass
     return filters
+
+def fetch_parent_context(results: list, limit: int = 3) -> list:
+    """Fetch additional lectures for the same day/program if a lecture is found."""
+    lectures = [r for r in results if r.get("type") == "timetable" and r.get("start_time")]
+    if not lectures: return results
+    
+    # Take the best lecture hit
+    best = lectures[0]
+    p_id = best.get("studiengang")
+    s_time = best.get("start_time")
+    
+    if p_id and s_time:
+        try:
+            day_prefix = s_time[:10]
+            context_results = client.scroll(
+                collection_name=COLLECTION_NAME,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(key="studiengang", match=models.MatchValue(value=p_id)),
+                        models.FieldCondition(key="start_time", match=models.MatchText(text=day_prefix))
+                    ]
+                ),
+                limit=10,
+                with_payload=True
+            )[0]
+            
+            # Add context to the first result text
+            extra_text = "\nKontext (andere Termine an diesem Tag):\n"
+            for p in context_results:
+                payload = p.payload
+                extra_text += f"- {payload.get('start_time','')[11:16]} {payload.get('title')} in {payload.get('raum')}\n"
+            
+            best["text"] = best["text"] + extra_text
+        except: pass
+    return results
 
 def hybrid_search(query: str, filters: dict = None, limit: int = 50) -> List:
     if not client: return []
@@ -154,6 +204,14 @@ def hybrid_search(query: str, filters: dict = None, limit: int = 50) -> List:
             must = []
             if "source" in filters: must.append(models.FieldCondition(key="source", match=models.MatchValue(value=filters["source"])))
             if "type" in filters: must.append(models.FieldCondition(key="type", match=models.MatchValue(value=filters["type"])))
+            if "start_range" in filters or "end_range" in filters:
+                must.append(models.FieldCondition(
+                    key="start_time", 
+                    range=models.Range(
+                        gte=filters.get("start_range"),
+                        lte=filters.get("end_range")
+                    )
+                ))
             if must: q_filter = models.Filter(must=must)
 
         return client.query_points(
@@ -210,10 +268,14 @@ async def api_search(q: str = Query(...), provider: str = Query("auto"), x_key: 
             "text": payload.get("content") or payload.get("text") or "",
             "title": payload.get("title") or "Seite",
             "type": payload.get("type", "webpage"),
-            "source": payload.get("source", "hs_aalen")
+            "source": payload.get("source", "hs_aalen"),
+            "start_time": payload.get("start_time"),
+            "raum": payload.get("raum"),
+            "studiengang": payload.get("studiengang")
         })
     ranked = boost_and_rank(q, results)
-    reranked = rerank_with_llm(q, ranked, res_m, res_p, x_key or "")
+    contextualized = fetch_parent_context(ranked)
+    reranked = rerank_with_llm(q, contextualized, res_m, res_p, x_key or "")
     summary = generate_summary(q, reranked, res_m, res_p, x_key or "")
     return {"results": reranked[:10], "total_results": len(ranked), "summary": summary, "model": res_m, "provider": res_p, "filters": filters}
 

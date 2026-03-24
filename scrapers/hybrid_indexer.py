@@ -46,24 +46,48 @@ def index_file(filename, source_name, p_type="webpage"):
         for i, line in enumerate(f):
             try:
                 record = json.loads(line)
-                text = record.get('content') or record.get('text') or record.get('full_text') or ""
+                text = record.get('content') or record.get('text') or record.get('full_text') or record.get('description') or ""
+                title = record.get('title') or record.get('modul') or record.get('lecture_info') or "Unbenannt"
+                
+                # Full text for embedding
+                full_text = f"{title}\n{text}\n{record.get('program', '')}\n{record.get('raum', '')}"
                 
                 # Create unique UUID
                 point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{source_name}_{i}"))
                 
+                # Timestamps for filtering
+                start_ts = None
+                end_ts = None
+                try:
+                    if record.get('start_time'):
+                        # Remove timezone for simple timestamp conversion if needed or use dateutil
+                        dt_str = record.get('start_time').replace('Z', '+00:00')
+                        start_ts = int(datetime.fromisoformat(dt_str).timestamp())
+                    if record.get('end_time'):
+                        dt_str = record.get('end_time').replace('Z', '+00:00')
+                        end_ts = int(datetime.fromisoformat(dt_str).timestamp())
+                except: pass
+
                 # Create hybrid point
                 point = PointStruct(
                     id=point_id,
                     vector={
-                        "dense": record['embedding'],
-                        "sparse": sparse_encode(text)
+                        "dense": record.get('embedding') or [0]*384,
+                        "sparse": sparse_encode(full_text)
                     },
                     payload={
                         'url': record.get('url'),
-                        'title': record.get('title') or record.get('lecture_info') or "Unbenannt",
-                        'content': text[:1000],
+                        'title': title,
+                        'content': text[:2000],
                         'source': source_name,
-                        'type': record.get('type') or p_type
+                        'type': record.get('type') or p_type,
+                        'modul': record.get('modul'),
+                        'start_time': start_ts,
+                        'end_time': end_ts,
+                        'start_iso': record.get('start_time'), # Keep original for display
+                        'raum': record.get('raum'),
+                        'instructor': record.get('instructor'),
+                        'studiengang': record.get('program')
                     }
                 )
                 points.append(point)
@@ -71,6 +95,17 @@ def index_file(filename, source_name, p_type="webpage"):
                 logger.error(f"Error parsing line {i} in {filename}: {e}")
 
     if not points: return
+
+    # Skip embedding for now if missing, but usually they are there
+    # Actually, if we use the scraper output, we NEED to generate embeddings!
+    # I'll add the embedding generation to the indexer since it's missing in the raw scraper.
+    from sentence_transformers import SentenceTransformer
+    model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+    
+    logger.info(f"✨ Generating embeddings for {len(points)} points...")
+    for p in points:
+        if p.vector["dense"] == [0]*384:
+            p.vector["dense"] = model.encode(p.payload['title'] + " " + p.payload['content'][:500]).tolist()
 
     logger.info(f"🔄 Upserting {len(points)} points from {source_name}...")
     batch_size = 100
@@ -85,5 +120,6 @@ if __name__ == "__main__":
     setup_collection()
     index_file('hs_aalen_indexed_data.jsonl', 'hs_aalen', 'webpage')
     index_file('asta_indexed_data.jsonl', 'asta', 'asta')
-    index_file('starplan_indexed_data.jsonl', 'starplan', 'timetable')
+    # Use the new iCal data
+    index_file('starplan_ical_data.jsonl', 'starplan', 'timetable')
     logger.info("🎬 Hybrid indexing complete!")
