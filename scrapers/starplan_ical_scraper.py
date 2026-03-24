@@ -148,33 +148,29 @@ class StarplanIcalScraper:
                     # Extract standard iCal properties
                     if 'summary' in component:
                         event['title'] = str(component['summary'])
+                        event['modul'] = str(component['summary'])
                     
                     if 'dtstart' in component:
                         dt = component['dtstart'].dt
                         event['start'] = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+                        event['start_time'] = event['start']
                     
                     if 'dtend' in component:
                         dt = component['dtend'].dt
                         event['end'] = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+                        event['end_time'] = event['end']
                     
                     if 'location' in component:
                         event['location'] = str(component['location'])
+                        event['raum'] = str(component['location'])
                     
-                    # Instructor might be in different fields depending on Starplan version
+                    # Instructor/Description parsing
+                    desc = str(component.get('description', ''))
+                    event['description'] = desc
                     if 'organizer' in component:
                         event['instructor'] = str(component['organizer'])
-                    elif 'description' in component and 'leiter' in str(component['description']).lower():
-                        event['instructor'] = str(component['description'])
                     
-                    if 'description' in component:
-                        event['description'] = str(component['description'])
-                    
-                    # Store raw properties for debugging
-                    for key in component:
-                        if key not in ['summary', 'dtstart', 'dtend', 'location', 'organizer', 'description']:
-                            event['raw'][key] = str(component[key])
-                    
-                    if event['title']:  # Only add if we have at least a title
+                    if event['title']:
                         lectures.append(event)
             
             logger.info(f"Parsed {len(lectures)} events from iCal")
@@ -217,10 +213,11 @@ class StarplanIcalScraper:
         
         return self.data
     
-    def save(self, filename='starplan_ical_data.json'):
-        """Save extracted data to JSON"""
+    def save(self, filename='starplan_ical_data.jsonl'):
+        """Save extracted lectures to JSONL"""
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(self.data, f, ensure_ascii=False, indent=2)
+            for lecture in self.data['lectures']:
+                f.write(json.dumps(lecture, ensure_ascii=False) + '\n')
         logger.info(f"Data saved to {filename}")
 
 async def main():

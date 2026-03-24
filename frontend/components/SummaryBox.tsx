@@ -8,9 +8,10 @@ interface SummaryBoxProps {
   model?: string;
   provider?: string;
   onFeedback?: (rating: 1 | -1) => void;
+  loading?: boolean;
 }
 
-export default function SummaryBox({ summary, sources, model, provider, onFeedback }: SummaryBoxProps) {
+export default function SummaryBox({ summary, sources, model, provider, onFeedback, loading }: SummaryBoxProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
 
@@ -50,10 +51,19 @@ export default function SummaryBox({ summary, sources, model, provider, onFeedba
       </div>
 
       <div className={`relative transition-all duration-400 ${isExpanded ? 'max-h-none' : 'max-h-[148px] overflow-hidden'}`}>
-        <div 
-          className="text-white/90 text-[0.95rem] leading-[1.8] summary-markdown"
-          dangerouslySetInnerHTML={{ __html: formattedSummary }}
-        />
+        {loading ? (
+          <div className="flex flex-col gap-3 py-2">
+            <div className="h-4 bg-white/10 rounded w-full animate-pulse" />
+            <div className="h-4 bg-white/10 rounded w-[90%] animate-pulse" />
+            <div className="h-4 bg-white/10 rounded w-[95%] animate-pulse" />
+            <div className="h-4 bg-white/10 rounded w-[40%] animate-pulse" />
+          </div>
+        ) : (
+          <div 
+            className="text-white/90 text-[0.95rem] leading-[1.8] summary-markdown"
+            dangerouslySetInnerHTML={{ __html: formattedSummary }}
+          />
+        )}
         {!isExpanded && summary.length > 300 && (
           <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-[var(--summary-bg)] to-transparent pointer-events-none" />
         )}

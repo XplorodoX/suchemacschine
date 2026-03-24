@@ -19,7 +19,7 @@
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
 }
 
 @layer components {

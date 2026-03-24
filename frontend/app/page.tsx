@@ -50,6 +50,9 @@ export default function Home() {
   
   const [showOptions, setShowOptions] = useState(false);
   const [logoClicks, setLogoClicks] = useState(0);
+  const [currentModel, setCurrentModel] = useState<string | undefined>(undefined);
+  const [currentProvider, setCurrentProvider] = useState<string | undefined>(undefined);
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -136,7 +139,7 @@ export default function Home() {
         const data = await res.json();
         setError(data.detail || "Limit erreicht. Bitte später erneut versuchen.");
         setResults([]);
-        setSummary("");
+        setSummary(undefined);
         setIsLoading(false);
         return;
       }
@@ -148,15 +151,53 @@ export default function Home() {
       const data: SearchResponse = await res.json();
       
       setResults(data.results);
-      setSummary(data.summary);
+      setSummary(undefined); // Reset summary before async load
       setTotalResults(data.total_results);
       setSources(data.sources || []);
       setLlmEnabled(data.llm_enabled);
       setResponseTime(Math.round(performance.now() - start));
+      setCurrentModel(data.model);
+      setCurrentProvider(data.provider);
+      setIsLoading(false); // Results are now visible!
+
+      // Step 2: Asynchronously fetch summary if enabled
+      if (options.summary && data.results.length > 0) {
+        setLoadingSummary(true);
+        try {
+          const sumRes = await fetch(`${API_BASE_URL}/api/summarize`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-OpenAI-Key': options.openaiKey 
+            },
+            body: JSON.stringify({
+              q: val,
+              results: data.results,
+              provider: options.provider,
+              model_name: options.model
+            })
+          });
+          
+          if (sumRes.ok) {
+            const sumData = await sumRes.json();
+            setSummary(sumData.summary);
+            setCurrentModel(sumData.model);
+            setCurrentProvider(sumData.provider);
+            
+            if (sumData.summary && sumData.summary.startsWith("ERROR: LIMIT_EXCEEDED")) {
+              setError("KI-Limit erreicht. Die Zusammenfassung ist derzeit nicht verfügbar.");
+              setSummary(undefined);
+            }
+          }
+        } catch (sumErr) {
+          console.error('Summary fetch failed', sumErr);
+        } finally {
+          setLoadingSummary(false);
+        }
+      }
     } catch (err) {
       console.error('Search failed', err);
       setError("Ein unerwarteter Fehler ist aufgetreten.");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -369,13 +410,14 @@ export default function Home() {
               </div>
             )}
 
-            {summary && activeFilter === 'all' && (
+            {(summary || loadingSummary) && activeFilter === 'all' && (
               <SummaryBox 
-                summary={summary} 
+                summary={summary || ""} 
                 sources={sources} 
-                model={options.model} 
-                provider={options.provider}
+                model={currentModel} 
+                provider={currentProvider}
                 onFeedback={handleFeedback}
+                loading={loadingSummary}
               />
             )}
 
@@ -413,8 +455,14 @@ export default function Home() {
               <a href="#" className="hover:text-[var(--accent)] transition-colors">Lizenzen</a>
            </div>
         </div>
-        <div className="mt-8 pt-8 border-t border-[var(--border)] text-center text-[var(--text-secondary)] text-[0.7rem] opacity-60 uppercase tracking-[0.2em]">
-           HS Aalen Search v2.0 • Powered by Next.js & FastAPI
+        <div className="mt-8 pt-8 border-t border-[var(--border)] flex flex-col items-center gap-2 text-[var(--text-secondary)] text-[0.7rem] opacity-60 uppercase tracking-[0.2em]">
+           <div>HS Aalen Search v2.0 • Powered by Next.js & FastAPI</div>
+           {(currentModel || options.provider !== 'none') && (
+             <div className="flex items-center gap-2 lowercase tracking-normal opacity-100 mt-1">
+               <Sparkles className="w-3 h-3 text-[var(--accent)]" />
+               <span>AI Status: {currentModel || 'Suche...'} ({currentProvider || options.provider})</span>
+             </div>
+           )}
         </div>
       </footer>
     </div>

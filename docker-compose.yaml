@@ -19,13 +19,14 @@ services:
       - "8055:8000"
     volumes:
       - ./data:/app/data
+      - ./backend/app.py:/app/app.py
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate
       - OLLAMA_MODEL=deepseek-r1:8b
       - GITHUB_TOKEN=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
-      - GITHUB_MODEL=mistral-ai/Ministral-3B-Instruct
+      - GITHUB_MODEL=openai/gpt-5
       - RATE_LIMIT_PER_HOUR=100
     extra_hosts:
       - "host.docker.internal:host-gateway"
