@@ -67,21 +67,9 @@ def is_github_available() -> bool:
     return True
 
 def resolve_provider(provider: str, key: str = "") -> str:
-    p = (provider or "auto").lower().strip()
-    if p == "none": return "none"
-    return "github"
+    return "none"
 
 def call_llm(prompt: str, model_name: str, provider: str = "github", api_key: str = "", timeout: int = 40) -> str:
-    if provider == "github":
-        api_key = api_key or os.getenv("GITHUB_TOKEN", "").strip()
-        if not api_key: return ""
-        for m in [model_name] + GITHUB_MODEL_FALLBACKS:
-            try:
-                res = requests.post(GITHUB_URL.rstrip('/') + "/chat/completions", headers={"Authorization": f"Bearer {api_key}"}, json={"model": m, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}, timeout=timeout)
-                if res.status_code == 429: return "LIMIT_EXCEEDED"
-                res.raise_for_status()
-                return res.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-            except: continue
     return ""
 
 def rerank_with_llm(q: str, results: list, m: str, p: str, key: str = "") -> list:
@@ -327,7 +315,7 @@ Falls die Information absolut nicht vorhanden ist, antworte NUR mit 'UNBEKANNT'.
 
 @app.get("/api/models")
 async def api_models(provider: str = Query("auto"), x_key: Optional[str] = Header(None, alias="X-OpenAI-Key")):
-    return {"models": [GITHUB_MODEL] + GITHUB_MODEL_FALLBACKS}
+    return {"models": []}
 
 @app.get("/api/search")
 async def api_search(q: str = Query(...), provider: str = Query("auto"), model_name: Optional[str] = Query(None), x_key: Optional[str] = Header(None, alias="X-OpenAI-Key")):

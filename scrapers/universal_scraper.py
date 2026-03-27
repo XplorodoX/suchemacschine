@@ -136,6 +136,24 @@ class UniversalScraper:
                 
         return True
 
+    def table_to_markdown(self, table) -> str:
+        """Convert a BeautifulSoup table into Markdown format."""
+        rows = []
+        for tr in table.find_all("tr"):
+            cells = [cell.get_text(strip=True) for cell in tr.find_all(["th", "td"])]
+            if cells:
+                rows.append("| " + " | ".join(cells) + " |")
+        
+        if not rows: return ""
+        
+        # Add separator after header
+        if len(rows) > 1:
+            header_cells = len(rows[0].split("|")) - 2
+            separator = "| " + " | ".join(["---"] * header_cells) + " |"
+            rows.insert(1, separator)
+            
+        return "\n" + "\n".join(rows) + "\n"
+
     async def discover_urls_from_sitemaps(self) -> List[str]:
         """Recursively discover URLs from sitemaps"""
         all_urls = []
@@ -200,11 +218,35 @@ class UniversalScraper:
         except Exception as e:
             logger.error(f"  [Error] Failed to process {url}: {e}")
 
+    def table_to_markdown(self, table) -> str:
+        """Convert a BeautifulSoup table into Markdown format."""
+        rows = []
+        for tr in table.find_all("tr"):
+            cells = [cell.get_text(strip=True) for cell in tr.find_all(["th", "td"])]
+            if cells:
+                rows.append("| " + " | ".join(cells) + " |")
+        
+        if not rows: return ""
+        
+        # Add separator after header
+        if len(rows) > 1:
+            header_cells = len(rows[0].split("|")) - 2
+            separator = "| " + " | ".join(["---"] * header_cells) + " |"
+            rows.insert(1, separator)
+            
+        return "\n" + "\n".join(rows) + "\n"
+
     async def process_html(self, url: str):
         resp = await self.httpx_client.get(url)
         if resp.status_code != 200: return
         
         soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        # Convert tables to markdown before removing tags
+        for table in soup.find_all("table"):
+            md_table = self.table_to_markdown(table)
+            table.replace_with(md_table)
+
         # PDF discovery from page
         for link in soup.find_all('a', href=True):
             href = link['href']

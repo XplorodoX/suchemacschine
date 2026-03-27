@@ -1,40 +1,53 @@
+erklär mir mal wie die suche aufgabeut ist und alles drumherum um zu chekcen ob das richitg implementiert ist alles damit das genze gut funktioniert
 
-Sitemap: https://www.hs-aalen.de/sitemap.xml
-Sitemap: https://www.hs-aalen.de/en/sitemap.xml
-User-agent: *
-Disallow: /suche/
-Disallow: /search/
-Disallow: /*?q=
-Disallow: /*&q=
+mach mal stichporben als test: Stuidum generealle, Rektor, exmatrikulation, spo 33 informatik, heinlein, Vorlesung Informatik am Montag. 
+check mal ob da was vernüfnitges rauskommt in der suche. Informationen die sinnvoll sind und auch passen und auch fakten sind und nicht irgendetwas!!! mach mal den test bitte!!!! und korregiere die suche os lange bis die inhalte gefunden werden. aber die suche solll allgemein bleiben und optimiert nur auf die sachen hier!!! wichtig! die suche soll im ganzen besser werden und nicht nur beim rektor!!
 
+Gerne! Hier sind die beiden Bausteine, die deine Suche auf das nächste Level heben.
+1. Intent Router: Der "Few-Shot" Prompt
+Damit das LLM nicht anfängt zu plaudern, sondern stabilen Code für dein Backend liefert, nutzt du am besten ein Pydantic-Modell (falls du LangChain/Instructor nutzt) oder diesen strikten System-Prompt:
 
-Sitemap: http://www.vs-hs-aalen.de/sitemap.xml
+### System Prompt: Intent Router HS AalenDu bist ein präziser Router für die Hochschul-KI Aalen. Deine Aufgabe ist es, die Nutzeranfrage zu klassifizieren und Entitäten zu extrahieren. Antworte AUSSCHLIESSLICH im JSON-Format.
 
-# Google Image
-User-agent: Googlebot-Image
-Disallow:
-Allow: /*
+Kategorien:- PERSON: Suche nach Professoren, Mitarbeitern, Sprechstunden.- TIMETABLE: Vorlesungen, Prüfungsphasen, Termine aus Starplan.- DOCUMENT: SPO, Satzungen, Anträge, Formulare (PDF-Fokus).- GENERAL: Mensa, Parken, allgemeine Campus-Infos.
 
-# digg mirror
-User-agent: duggmirror
-Disallow: /
+Beispiele:
+Nutzer: "Wann hat Prof. Müller Sprechstunde?"
+JSON: {"intent": "PERSON", "entity": "Müller", "boost_pdf": false, "time_filter": null}
 
-# global
-User-agent: *
-Disallow: /cgi-bin/
-Disallow: /wp-admin/
-Disallow: /wp-includes/
-Disallow: /wp-content/plugins/
-Disallow: /wp-content/cache/
-Disallow: /wp-content/themes/
-Disallow: /trackback/
-Disallow: /feed/
-Disallow: /comments/
-Disallow: /category/*/*
-Disallow: */trackback/
-Disallow: */feed/
-Disallow: */comments/
-Disallow: /*?
-Allow: /wp-content/uploads/
+Nutzer: "Ich brauche die SPO für Informatik 2023"
+JSON: {"intent": "DOCUMENT", "entity": "SPO Informatik", "boost_pdf": true, "time_filter": "2023"}
 
-scrapen wir das auch??? alle, also auch pdfs auf jeder seite auf den webseiten und indezierne die ??!
+Nutzer: "Was gibt es heute in der Mensa?"
+JSON: {"intent": "GENERAL", "entity": "Mensa", "boost_pdf": false, "time_filter": "today"}
+
+Nutzer: <ANFRAGE>
+JSON:
+
+2. RRF-Logik (Custom Tuning)
+Da du erwähnt hast, dass du Sparse-Vektoren bei Eigennamen (wie "Müller" oder "SPO") stärker gewichten willst, kannst du eine gewichtete RRF-Variante nutzen. Hier ist ein Python-Snippet, das zwei Ergebnislisten (Dense & Sparse) kombiniert:
+
+def weighted_rrf(dense_hits, sparse_hits, k=60, dense_weight=1.0, sparse_weight=1.0):
+    """
+    Kombiniert Ergebnisse aus Vektor- (dense) und Keyword-Suche (sparse).
+    Erhöhe sparse_weight, wenn der Intent 'PERSON' oder 'DOCUMENT' ist.
+    """
+    scores = {}
+    
+    # Verarbeite Dense Ergebnisse
+    for rank, hit in enumerate(dense_hits):
+        doc_id = hit.id
+        scores[doc_id] = scores.get(doc_id, 0) + dense_weight * (1 / (k + rank + 1))
+        
+    # Verarbeite Sparse Ergebnisse
+    for rank, hit in enumerate(sparse_hits):
+        doc_id = hit.id
+        scores[doc_id] = scores.get(doc_id, 0) + sparse_weight * (1 / (k + rank + 1))
+        
+    # Sortiere nach aggregiertem Score
+    sorted_docs = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    return sorted_docs
+
+3. "Leichtes" Tabellen-Handling (Workaround)
+Da Docling/Marker zu schwer sind: Nutze im Scraper für HTML-Seiten BeautifulSoup mit dem Feature, <table>-Tags gezielt in Markdown-Syntax umzuwandeln (| Spalte 1 | Spalte 2 |), bevor du den Text an den Chunker übergibst. Für PDFs ist PyMuPDF (fitz) oft ein guter Kompromiss, da es Tabellenstrukturen zumindest zeilenweise recht sauber ausliest, wenn man get_text("blocks") nutzt.
+Wie planst du das "Small-to-Big Retrieval" technisch umzusetzen? Soll ich dir zeigen, wie man die Parent-Child-Beziehung in der Qdrant-Metadatenstruktur abbildet?

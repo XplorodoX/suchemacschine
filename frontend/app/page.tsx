@@ -6,6 +6,7 @@ import ResultItem from '@/components/ResultItem';
 import SummaryBox from '@/components/SummaryBox';
 import Header from '@/components/Header';
 import { Settings, Sparkles, Loader2, Info } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -109,7 +110,34 @@ export default function Home() {
     }
   };
 
-  const handleSearch = async (val: string) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Verlauf (max. 10 Einträge)
+  const [history, setHistory] = useState<string[]>([]);
+
+  // Lade Verlauf aus LocalStorage beim Start
+  useEffect(() => {
+    const stored = localStorage.getItem('searchHistory');
+    if (stored) setHistory(JSON.parse(stored));
+  }, []);
+
+  // Schreibe Verlauf in LocalStorage, wenn er sich ändert
+  useEffect(() => {
+    localStorage.setItem('searchHistory', JSON.stringify(history));
+  }, [history]);
+
+  // URL-Query übernehmen (z.B. bei Back/Forward)
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    if (q && q !== query) {
+      setQuery(q);
+      handleSearch(q, false); // false: nicht erneut pushen
+    }
+    // eslint-disable-next-line
+  }, [searchParams]);
+
+  const handleSearch = async (val: string, pushState = true) => {
     if (!val.trim()) return;
     setQuery(val);
     setIsLoading(true);
@@ -117,7 +145,14 @@ export default function Home() {
     setError(null);
     setActiveFilter('all');
     const start = performance.now();
-
+    if (pushState) {
+      router.push(`/?q=${encodeURIComponent(val)}`);
+    }
+    // Verlauf aktualisieren
+    setHistory(prev => {
+      const arr = [val, ...prev.filter(v => v !== val)];
+      return arr.slice(0, 10);
+    });
     try {
       const params = new URLSearchParams({
         q: val,
@@ -235,6 +270,23 @@ export default function Home() {
         </div>
 
         <SearchBox onSearch={handleSearch} isLanding={true} />
+        {/* Verlaufsliste */}
+        {history.length > 0 && (
+          <div className="mt-4 w-full max-w-[584px] text-left">
+            <div className="text-xs text-[var(--text-secondary)] mb-1">Letzte Suchen:</div>
+            <div className="flex flex-wrap gap-2">
+              {history.map((h, i) => (
+                <button
+                  key={h + i}
+                  onClick={() => handleSearch(h)}
+                  className="px-2 py-1 bg-[var(--surface)] border border-[var(--border)] rounded text-xs hover:bg-[var(--accent)] hover:text-white transition-colors"
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <button 
             onClick={() => handleSearch(query)}
