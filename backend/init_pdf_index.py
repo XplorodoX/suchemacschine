@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
+"""
+Initialize PDF index with hybrid search support (dense + BM25 sparse)
+"""
 import os
-import json
+import sys
 import logging
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVectorParams
 from sentence_transformers import SentenceTransformer
+
+# Add scrapers dir to path for hybrid_utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scrapers'))
+from hybrid_utils import sparse_encode
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,15 +27,22 @@ def main():
 
     # Recreate collection
     try:
+        client.get_collection(COLLECTION_NAME)
+        logger.info(f"Deleting old collection {COLLECTION_NAME}")
         client.delete_collection(COLLECTION_NAME)
     except:
         pass
 
     client.create_collection(
         collection_name=COLLECTION_NAME,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+        vectors_config={
+            "dense": VectorParams(size=384, distance=Distance.COSINE),
+        },
+        sparse_vectors_config={
+            "sparse": SparseVectorParams(),
+        },
     )
-    logger.info(f"Created collection {COLLECTION_NAME}")
+    logger.info(f"Created hybrid collection {COLLECTION_NAME}")
 
     # Seed data
     seeds = [
@@ -57,9 +71,13 @@ def main():
     points = []
     for i, item in enumerate(seeds):
         vector = model.encode(item["text"]).tolist()
+        full_text = f"{item['title']} {item['text']}"
         point = PointStruct(
             id=i + 5000, # Offset to avoid collisions
-            vector=vector,
+            vector={
+                "dense": vector,
+                "sparse": sparse_encode(full_text),
+            },
             payload={
                 "url": item["url"],
                 "title": item["title"],
@@ -71,7 +89,7 @@ def main():
         points.append(point)
 
     client.upsert(COLLECTION_NAME, points)
-    logger.info(f"Successfully seeded {len(points)} PDF records")
+    logger.info(f"Successfully seeded {len(points)} hybrid PDF records")
 
 if __name__ == "__main__":
     main()

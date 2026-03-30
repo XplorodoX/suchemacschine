@@ -23,6 +23,19 @@ export default function ResultItem({ result, query }: ResultItemProps) {
   const isPdf = result.type === 'pdf' || result.url?.toLowerCase().endsWith('.pdf');
   const isAsta = result.type === 'asta' || (result.url && (result.url.includes('vs-hs-aalen.de') || result.url.includes('asta-aalen.de')));
 
+  const handleLinkClick = () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    fetch(`${apiUrl}/api/feedback/click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, url: result.url, type: 'short_click' })
+    }).catch(() => {});
+
+    sessionStorage.setItem('lastClickedUrl', result.url);
+    sessionStorage.setItem('lastClickedQuery', query);
+    sessionStorage.setItem('lastClickedTime', Date.now().toString());
+  };
+
   const highlightText = (text: string, q: string) => {
     if (!text || !q) return text;
     const words = q.split(/\s+/).filter((w) => w.length > 2);
@@ -125,7 +138,7 @@ export default function ResultItem({ result, query }: ResultItemProps) {
         </div>
 
         <h3 className="text-xl font-normal mb-1.5 text-[var(--link)] hover:underline decoration-red-500/30">
-          <a href={result.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+          <a href={result.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" onClick={handleLinkClick}>
             {highlightText(result.title, query)} <ExternalLink className="w-4 h-4 opacity-50" />
           </a>
         </h3>
@@ -178,7 +191,7 @@ export default function ResultItem({ result, query }: ResultItemProps) {
         </div>
 
         <h3 className="text-xl font-normal mb-2 text-[var(--link)] hover:underline decoration-[var(--accent)]/30">
-          <a href={scrollUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+          <a href={scrollUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2" onClick={handleLinkClick}>
             {highlightText(result.title, query)} <ExternalLink className="w-4 h-4 opacity-50" />
           </a>
         </h3>
@@ -221,7 +234,7 @@ export default function ResultItem({ result, query }: ResultItemProps) {
       </div>
 
       <h3 className="text-xl font-normal mb-1.5 text-[var(--link)] hover:underline decoration-current/30">
-        <a href={scrollUrl} target="_blank" rel="noopener noreferrer">
+        <a href={scrollUrl} target="_blank" rel="noopener noreferrer" onClick={handleLinkClick}>
           {highlightText(result.title, query)}
         </a>
       </h3>

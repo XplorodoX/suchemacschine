@@ -11,6 +11,8 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.models import Prefetch, FusionQuery, Fusion, SparseVector
 from sentence_transformers import SentenceTransformer
 from fastembed import SparseTextEmbedding
+from pydantic import BaseModel
+import sqlite3
 
 # --- Configuration ---
 COLLECTION_NAME = "hs_aalen_hybrid"
@@ -22,6 +24,34 @@ GERMAN_STOPWORDS = {"der", "die", "das", "ein", "eine", "einer", "einem", "einen
 
 app = FastAPI(title="HS Aalen Search")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# --- Database for NavBoost ---
+DB_FILE = os.path.join(os.path.dirname(__file__), "navboost.db")
+
+def init_db():
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS navboost_stats (
+                query TEXT,
+                url TEXT,
+                short_clicks INTEGER DEFAULT 0,
+                long_clicks INTEGER DEFAULT 0,
+                PRIMARY KEY (query, url)
+            )
+        ''')
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error initializing DB: {e}")
+
+init_db()
+
+class FeedbackRequest(BaseModel):
+    query: str
+    url: str
+    type: str # "short_click" or "long_click"
 
 print("Loading models...")
 try:
@@ -466,9 +496,22 @@ def lexical_relevance(query: str, text: str, url: str) -> float:
     return max(0.0, min(1.0, score))
 
 
+def get_navboost_stats(q: str) -> dict:
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT url, short_clicks, long_clicks FROM navboost_stats WHERE query = ?", (q.lower().strip(),))
+        rows = cursor.fetchall()
+        conn.close()
+        return {row[0]: {"short": row[1], "long": row[2]} for row in rows}
+    except Exception:
+        return {}
+
+
 def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
     q_low = q.lower()
     intent = (intent_data or {}).get("intent", "general")
+    navboost_stats = get_navboost_stats(q_low)
     
     for r in results:
         title = (r.get("title") or "")
@@ -480,6 +523,14 @@ def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
         # Ngram-based lexical relevance (unigrams + bigrams + trigrams + phrase)
         lex_score = lexical_relevance(q, text, url)
         r["score"] = (0.35 * r["score"]) + (0.65 * lex_score)
+        
+        # --- NavBoost Dynamik ---
+        if url in navboost_stats:
+            stats = navboost_stats[url]
+            boost = (stats["short"] * 0.1) + (stats["long"] * 0.5)
+            # Cap boost to prevent completely distorting other scores
+            r["score"] += min(boost, 2.0)
+            r["is_navboosted"] = True # For frontend hinting optionally
         
         # Intent-Based Dynamic Boosting
         if intent == "timetable":
@@ -515,6 +566,37 @@ async def api_search(q: str = Query(...)):
         "total_results": len(ranked), 
         "filters": intent_data, 
     }
+
+@app.post("/api/feedback/click")
+async def register_click(data: FeedbackRequest):
+    q_low = data.query.lower().strip()
+    if not q_low or not data.url:
+        return {"status": "ignored"}
+    
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT short_clicks, long_clicks FROM navboost_stats WHERE query = ? AND url = ?", (q_low, data.url))
+        row = cursor.fetchone()
+        
+        if row:
+            if data.type == "long_click":
+                cursor.execute("UPDATE navboost_stats SET long_clicks = long_clicks + 1 WHERE query = ? AND url = ?", (q_low, data.url))
+            else:
+                cursor.execute("UPDATE navboost_stats SET short_clicks = short_clicks + 1 WHERE query = ? AND url = ?", (q_low, data.url))
+        else:
+            if data.type == "long_click":
+                cursor.execute("INSERT INTO navboost_stats (query, url, short_clicks, long_clicks) VALUES (?, ?, 0, 1)", (q_low, data.url))
+            else:
+                cursor.execute("INSERT INTO navboost_stats (query, url, short_clicks, long_clicks) VALUES (?, ?, 1, 0)", (q_low, data.url))
+                
+        conn.commit()
+        conn.close()
+        return {"status": "success"}
+    except Exception as e:
+        print(f"DB Error: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/health")
 async def health(): return {"status": "ok"}
