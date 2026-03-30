@@ -10,6 +10,19 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+const RECOMMENDATIONS = [
+  "Stundenplan",
+  "Prüfungsordnung",
+  "Vorlesungsverzeichnis",
+  "Modulhandbuch",
+  "Klausurtermine",
+  "Bibliothek",
+  "Mensa",
+  "Studienberatung",
+  "Bewerbung",
+  "Notenspiegel"
+];
+
 interface SearchResult {
   type: 'webpage' | 'timetable' | 'website' | 'asta' | 'pdf';
   title: string;
@@ -269,7 +282,7 @@ export default function Home() {
           </h1>
         </div>
 
-        <SearchBox onSearch={handleSearch} isLanding={true} />
+        <SearchBox onSearch={handleSearch} isLanding={true} history={history} recommendations={RECOMMENDATIONS} />
         {/* Verlaufsliste */}
         {history.length > 0 && (
           <div className="mt-4 w-full max-w-[584px] text-left">
@@ -387,7 +400,7 @@ export default function Home() {
             <span className="text-[#81c995]">Aalen</span>
           </div>
           <div className="flex-1 max-w-[692px]">
-            <SearchBox onSearch={handleSearch} initialValue={query} />
+            <SearchBox onSearch={handleSearch} initialValue={query} history={history} recommendations={RECOMMENDATIONS} />
           </div>
         </div>
         

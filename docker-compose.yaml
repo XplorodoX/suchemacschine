@@ -16,7 +16,7 @@ services:
       dockerfile: Dockerfile
     container_name: search-api-service
     ports:
-      - "8055:8000"
+      - "6055:8000"
     volumes:
       - ./data:/app/data
       - ./backend/app.py:/app/app.py
@@ -40,7 +40,7 @@ services:
       dockerfile: Dockerfile
     container_name: search-frontend-service
     ports:
-      - "8056:3000"
+      - "6056:3000"
     environment:
       - NEXT_PUBLIC_API_URL=https://campusindex.8xc.de
     restart: always
