@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
 Index ASTA Data into Qdrant
-Erstellt separate Collection nur für ASTA-Inhalte
+Creates hybrid collection with dense + BM25 sparse vectors
 """
 
 import json
 import logging
+import os
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
-
-import os
+from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVectorParams
+from hybrid_utils import sparse_encode
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -31,13 +31,18 @@ try:
 except:
     pass
 
-# Create collection
-logger.info(f"📦 Creating collection '{COLLECTION_NAME}'...")
+# Create hybrid collection (dense + sparse BM25)
+logger.info(f"📦 Creating hybrid collection '{COLLECTION_NAME}'...")
 client.create_collection(
     collection_name=COLLECTION_NAME,
-    vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+    vectors_config={
+        "dense": VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+    },
+    sparse_vectors_config={
+        "sparse": SparseVectorParams(),
+    },
 )
-logger.info("✓ Collection created")
+logger.info("✓ Hybrid collection created (dense + BM25 sparse)")
 
 # Load and index data
 logger.info("📂 Loading asta_indexed_data.jsonl...")
@@ -48,14 +53,20 @@ try:
         for i, line in enumerate(f, 1):
             record = json.loads(line)
             
-            # Create point
+            title = record.get('title', '')
+            content = record.get('content', '')[:2000]
+            full_text = f"{title} {content}"
+            
             point = PointStruct(
                 id=i,
-                vector=record['embedding'],
+                vector={
+                    "dense": record['embedding'],
+                    "sparse": sparse_encode(full_text),
+                },
                 payload={
                     'url': record['url'],
-                    'title': record['title'],
-                    'content': record['content'][:500],  # Limit payload
+                    'title': title,
+                    'content': content,
                     'source': record['source'],
                     'type': record.get('type', 'asta')
                 }
@@ -66,7 +77,7 @@ except FileNotFoundError:
     logger.error("   Please run prepare_asta_data.py first")
     exit(1)
 
-logger.info(f"✓ Loaded {len(points)} records")
+logger.info(f"✓ Loaded {len(points)} records with BM25 sparse vectors")
 
 if len(points) == 0:
     logger.error("❌ No data to index!")
@@ -89,9 +100,8 @@ info = client.get_collection(COLLECTION_NAME)
 logger.info("✓ ASTA Collection created successfully:")
 logger.info(f"   Collection: {COLLECTION_NAME}")
 logger.info(f"   Points: {info.points_count}")
-logger.info(f"   Vectors size: {info.config.params.vectors.size}")
 
-logger.info("\n✅ ASTA collection ready for search!")
+logger.info("\n✅ ASTA hybrid collection ready for search!")
 
 # Verify all collections
 logger.info("\n📊 Qdrant Collections Status:")

@@ -8,8 +8,9 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import Prefetch, FusionQuery, Fusion
+from qdrant_client.models import Prefetch, FusionQuery, Fusion, SparseVector
 from sentence_transformers import SentenceTransformer
+from fastembed import SparseTextEmbedding
 
 # --- Configuration ---
 COLLECTION_NAME = "hs_aalen_hybrid"
@@ -22,14 +23,27 @@ GERMAN_STOPWORDS = {"der", "die", "das", "ein", "eine", "einer", "einem", "einen
 app = FastAPI(title="HS Aalen Search")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-print("Loading Embedding Model...")
+print("Loading models...")
 try:
     model = SentenceTransformer(MODEL_NAME)
+    print("✓ Dense embedding model loaded")
+    sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
+    print("✓ BM25 sparse model loaded")
     client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-    print("✓ Models and Qdrant initialized")
+    print("✓ Qdrant connected")
 except Exception as e:
     print(f"Warning: Initialization failed: {e}")
-    model, client = None, None
+    model, sparse_model, client = None, None, None
+
+
+def sparse_encode(text: str) -> SparseVector:
+    """Encode text into a BM25 sparse vector using fastembed."""
+    result = list(sparse_model.embed([text]))[0]
+    return SparseVector(
+        indices=result.indices.tolist(),
+        values=result.values.tolist(),
+    )
+
 
 def normalize_text(t: str) -> str:
     t = (t or "").lower()
@@ -38,16 +52,6 @@ def normalize_text(t: str) -> str:
 
 def tokenize(t: str) -> List[str]:
     return [w for w in re.findall(r"[a-zA-Z0-9äöüß]{2,}", normalize_text(t)) if w not in GERMAN_STOPWORDS]
-
-import hashlib
-def sparse_encode(text: str) -> models.SparseVector:
-    tokens = tokenize(text)
-    if not tokens: return models.SparseVector(indices=[], values=[])
-    counts = {}
-    for tok in tokens:
-        idx = int(hashlib.md5(tok.encode()).hexdigest(), 16) % 1000000
-        counts[idx] = counts.get(idx, 0) + 1.0
-    return models.SparseVector(indices=list(counts.keys()), values=list(counts.values()))
 
 # Keywords that signal a timetable/schedule query
 TIMETABLE_SIGNALS = {
@@ -98,6 +102,55 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
         "starplan_timetable": 0.3,
         "asta_content": 0.4,
     }
+# Common university term synonyms for query expansion
+PROGRAM_SYNONYMS = {
+    "info": "informatik",
+    "informatik": "computer science informationstechnologie",
+    "wi": "wirtschaftsinformatik",
+    "bwl": "betriebswirtschaftslehre",
+    "mathe": "mathematik",
+    "e-technik": "elektrotechnik",
+    "et": "elektrotechnik",
+    "mb": "maschinenbau",
+    "mensa": "speiseplan essen cafeteria",
+    "bib": "bibliothek",
+    "spo": "studien prüfungsordnung",
+    "bafög": "bafög studienfinanzierung amt",
+    "prüfung": "klausur exam prüfungsleistung",
+    "bewerbung": "zulassung immatrikulation einschreibung",
+    "praktikum": "praxissemester praxisphase",
+    "thesis": "bachelorarbeit masterarbeit abschlussarbeit",
+}
+
+
+def expand_program_terms(query: str) -> str:
+    """Expand known abbreviations and synonyms in the query."""
+    q_low = query.lower()
+    additions = []
+    for term, synonyms in PROGRAM_SYNONYMS.items():
+        if term in q_low:
+            additions.append(synonyms)
+    if additions:
+        return f"{query} {' '.join(additions)}"
+    return query
+
+
+def generate_query_variants(query: str) -> list[str]:
+    """Generate rule-based query variants for multi-query retrieval."""
+    variants = [query]
+
+    # Reversed token order (often helps with German word order)
+    tokens = query.split()
+    if len(tokens) > 1:
+        variants.append(" ".join(reversed(tokens)))
+
+    # Synonym-expanded variant
+    expanded = expand_program_terms(query)
+    if expanded != query:
+        variants.append(expanded)
+
+    # Deduplicate while preserving order
+    return list(dict.fromkeys(variants))
 
 
 def hybrid_search(
@@ -108,18 +161,14 @@ def hybrid_search(
     semester: str = "SoSe26",
 ) -> list:
     """
-    True hybrid search: dense vector (semantic) + sparse BM25 keyword matching.
-    Weights collections dynamically based on query type.
+    Multi-query hybrid search: generates query variants, searches each with
+    dense + BM25 sparse, then merges all results via Reciprocal Rank Fusion.
     """
     query_type = _detect_query_type(query)
     weights = _get_collection_weights(query_type)
+    variants = generate_query_variants(query)
 
-    # Dense vector from embedding model
-    dense_vector = model.encode(query).tolist()
-
-    all_results = []
-
-    # Collections to search (use semester-specific timetable if available)
+    # Collections to search
     timetable_collection = f"starplan_{semester}"
     collections_to_search = {
         "hs_aalen_search": weights.get("hs_aalen_search", 1.0),
@@ -130,55 +179,67 @@ def hybrid_search(
 
     per_collection_limit = max(10, total_limit)
 
-    for collection_name, weight in collections_to_search.items():
-        if weight < 0.05:
-            continue
+    # RRF accumulator: url -> {result_dict, rrf_score}
+    rrf_results: dict[str, dict] = {}
+    RRF_K = 60  # Standard RRF constant
 
-        try:
-            results = _search_collection(
-                client=client,
-                collection_name=collection_name,
-                dense_vector=dense_vector,
-                query=query,
-                limit=per_collection_limit,
-            )
+    for variant in variants:
+        # Encode this variant
+        dense_vector = model.encode(variant).tolist()
+        sparse_vector = sparse_encode(variant)
 
-            for r in results:
-                r["score"] = r["score"] * weight
-                r["collection"] = collection_name
+        for collection_name, weight in collections_to_search.items():
+            if weight < 0.05:
+                continue
 
-            all_results.extend(results)
+            try:
+                results = _search_collection(
+                    client=client,
+                    collection_name=collection_name,
+                    dense_vector=dense_vector,
+                    sparse_vector=sparse_vector,
+                    query=variant,
+                    limit=per_collection_limit,
+                )
+            except Exception as e:
+                print(f"WARNING: Collection {collection_name} unavailable: {e}")
 
-        except Exception as e:
-            print(f"WARNING: Collection {collection_name} unavailable: {e}")
+                # Fallback for semester-specific timetable
+                if collection_name.startswith("starplan_") and collection_name != "starplan_timetable":
+                    try:
+                        results = _search_collection(
+                            client=client,
+                            collection_name="starplan_timetable",
+                            dense_vector=dense_vector,
+                            sparse_vector=sparse_vector,
+                            query=variant,
+                            limit=per_collection_limit,
+                        )
+                        weight = weights.get("starplan_timetable", 0.3)
+                        collection_name = "starplan_timetable"
+                    except Exception:
+                        continue
+                else:
+                    continue
 
-            # Fallback to old timetable collection for semester-specific ones
-            if collection_name.startswith("starplan_") and collection_name != "starplan_timetable":
-                try:
-                    fallback_results = _search_collection(
-                        client=client,
-                        collection_name="starplan_timetable",
-                        dense_vector=dense_vector,
-                        query=query,
-                        limit=per_collection_limit,
-                    )
-                    fallback_weight = weights.get("starplan_timetable", 0.3)
-                    for r in fallback_results:
-                        r["score"] = r["score"] * fallback_weight
-                        r["collection"] = "starplan_timetable"
-                    all_results.extend(fallback_results)
-                except Exception:
-                    pass
+            # Accumulate RRF scores across variants and collections
+            for rank, r in enumerate(results):
+                url = r.get("url", f"_no_url_{rank}")
+                rrf_score = weight / (RRF_K + rank + 1)
 
-    # Deduplicate by URL, keeping highest score
-    seen: dict[str, dict] = {}
-    for r in all_results:
-        url = r.get("url", "")
-        if url not in seen or r["score"] > seen[url]["score"]:
-            seen[url] = r
+                if url not in rrf_results:
+                    r["collection"] = collection_name
+                    rrf_results[url] = {"result": r, "rrf": 0.0}
+                rrf_results[url]["rrf"] += rrf_score
 
-    # Sort by score descending
-    sorted_results = sorted(seen.values(), key=lambda x: x["score"], reverse=True)
+    # Assign merged RRF scores and sort
+    merged = []
+    for entry in rrf_results.values():
+        r = entry["result"]
+        r["score"] = entry["rrf"]
+        merged.append(r)
+
+    sorted_results = sorted(merged, key=lambda x: x["score"], reverse=True)
     return sorted_results[:total_limit]
 
 
@@ -186,36 +247,68 @@ def _search_collection(
     client: QdrantClient,
     collection_name: str,
     dense_vector: list[float],
+    sparse_vector: SparseVector,
     query: str,
     limit: int,
 ) -> list[dict]:
     """
-    Search a single collection. Tries sparse+dense hybrid first,
-    falls back to dense-only if sparse vectors aren't configured.
+    Search a single collection using true hybrid retrieval:
+    1. Dense prefetch (semantic similarity)
+    2. Sparse BM25 prefetch (keyword/phrase matching)
+    3. Reciprocal Rank Fusion (RRF) to merge both rankings
+
+    Falls back to dense-only if the collection doesn't have sparse vectors.
     """
     try:
+        # True hybrid: dense + sparse BM25 with RRF fusion
         results = client.query_points(
             collection_name=collection_name,
             prefetch=[
+                # Dense (semantic)
                 Prefetch(
                     query=dense_vector,
                     using="dense",
                     limit=limit * 2,
                 ),
+                # Sparse = BM25 (keyword/phrase matching)
+                Prefetch(
+                    query=sparse_vector,
+                    using="sparse",
+                    limit=limit * 2,
+                ),
             ],
+            # Reciprocal Rank Fusion: merges both rankings fairly
+            # Documents that appear in both rankings get boosted
             query=FusionQuery(fusion=Fusion.RRF),
             limit=limit,
             with_payload=True,
         ).points
 
-    except Exception:
-        # Fallback: dense-only search
-        results = client.query_points(
-            collection_name=collection_name,
-            query=dense_vector,
-            limit=limit,
-            with_payload=True,
-        ).points
+    except Exception as e:
+        print(f"  Hybrid search failed for {collection_name}, trying dense-only: {e}")
+        # Fallback: dense-only search (for collections without sparse vectors)
+        try:
+            results = client.query_points(
+                collection_name=collection_name,
+                prefetch=[
+                    Prefetch(
+                        query=dense_vector,
+                        using="dense",
+                        limit=limit * 2,
+                    ),
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
+                limit=limit,
+                with_payload=True,
+            ).points
+        except Exception:
+            # Final fallback: unnamed vector search (legacy collections)
+            results = client.query_points(
+                collection_name=collection_name,
+                query=dense_vector,
+                limit=limit,
+                with_payload=True,
+            ).points
 
     return _format_results(results, collection_name)
 
@@ -242,7 +335,7 @@ def _format_results(points, collection_name: str) -> list[dict]:
                 payload.get("day", ""),
                 payload.get("time", ""),
             ]
-            text = " — ".join(p for p in parts if p)
+            text = " — ".join(pt for pt in parts if pt)
             result_type = "timetable"
         elif is_hs_website or is_asta:
             text = f"{payload.get('title', '')}: {payload.get('content', '')[:200]}"
@@ -318,24 +411,75 @@ def _detect_intent_local(q: str) -> dict:
     return {"intent": "GENERAL", "entity": q}
 
 
+def build_ngrams(tokens: list[str], n: int) -> set[str]:
+    """Build n-grams from a token list."""
+    return {" ".join(tokens[i:i+n]) for i in range(len(tokens) - n + 1)}
+
+
+def lexical_relevance(query: str, text: str, url: str) -> float:
+    """
+    Compute lexical relevance using unigrams, bigrams, trigrams,
+    exact phrase matching, and long-token bonuses.
+    """
+    q_tokens = tokenize(query)
+    if not q_tokens:
+        return 0.0
+
+    haystack = f"{normalize_text(text)} {normalize_text(url)}"
+
+    # Unigram coverage (single token matches)
+    matched_unigrams = {tok for tok in q_tokens if tok in haystack}
+    unigram_coverage = len(matched_unigrams) / len(q_tokens)
+
+    # Bigram matching (word pairs together)
+    bigram_bonus = 0.0
+    if len(q_tokens) >= 2:
+        q_bigrams = build_ngrams(q_tokens, 2)
+        matched_bigrams = {bg for bg in q_bigrams if bg in haystack}
+        if q_bigrams:
+            bigram_coverage = len(matched_bigrams) / len(q_bigrams)
+            bigram_bonus = 0.25 * bigram_coverage
+
+    # Trigram matching (3-word phrases)
+    trigram_bonus = 0.0
+    if len(q_tokens) >= 3:
+        q_trigrams = build_ngrams(q_tokens, 3)
+        matched_trigrams = {tg for tg in q_trigrams if tg in haystack}
+        if q_trigrams:
+            trigram_coverage = len(matched_trigrams) / len(q_trigrams)
+            trigram_bonus = 0.15 * trigram_coverage
+
+    # Exact phrase bonus
+    phrase_bonus = 0.0
+    normalized_query = normalize_text(query)
+    if len(normalized_query) >= 6 and normalized_query in haystack:
+        phrase_bonus = 0.3
+
+    # Long token bonus (important for German compound words)
+    long_token_bonus = 0.0
+    long_tokens = [t for t in q_tokens if len(t) >= 6]
+    if long_tokens:
+        long_matches = sum(1 for t in long_tokens if t in haystack)
+        long_token_bonus = 0.1 * (long_matches / len(long_tokens))
+
+    score = (0.55 * unigram_coverage) + bigram_bonus + trigram_bonus + phrase_bonus + long_token_bonus
+    return max(0.0, min(1.0, score))
+
+
 def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
-    tokens = tokenize(q)
     q_low = q.lower()
     intent = (intent_data or {}).get("intent", "general")
     
     for r in results:
-        title = (r.get("title") or "").lower()
-        url = (r.get("url") or "").lower()
-        text = normalize_text(r.get("text", "") + " " + title)
+        title = (r.get("title") or "")
+        url = (r.get("url") or "")
+        text = r.get("text", "") + " " + title
         source = r.get("source", "")
         res_type = r.get("type", "")
         
-        # Lexical Match Score
-        lex_score = sum(2.0 if tok in title else (1.5 if tok in url else 1.0) for tok in tokens if tok in text) / (len(tokens) or 1)
+        # Ngram-based lexical relevance (unigrams + bigrams + trigrams + phrase)
+        lex_score = lexical_relevance(q, text, url)
         r["score"] = (0.35 * r["score"]) + (0.65 * lex_score)
-        
-        # Exact Phrase Boost
-        if q_low in title: r["score"] += 1.5
         
         # Intent-Based Dynamic Boosting
         if intent == "timetable":
@@ -343,10 +487,10 @@ def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
             else: r["score"] -= 0.3
         elif intent == "person":
             if source == "hs_aalen" and res_type == "webpage": r["score"] += 1.0
-            if "prof" in title or "rector" in title or "rektor" in title: r["score"] += 1.0
+            if "prof" in title.lower() or "rector" in title.lower() or "rektor" in title.lower(): r["score"] += 1.0
         elif intent == "document":
             if res_type == "pdf": r["score"] += 1.5
-            if any(k in title for k in ["satzung", "ordnung"]): r["score"] += 0.8
+            if any(k in title.lower() for k in ["satzung", "ordnung"]): r["score"] += 0.8
         
         # source/type defaults
         if source in ["hs_aalen", "asta"]: r["score"] += 0.3
@@ -359,7 +503,7 @@ async def api_search(q: str = Query(...)):
     # Local intent detection (no LLM)
     intent_data = _detect_intent_local(q)
     
-    # Hybrid vector search
+    # Hybrid vector search (dense + BM25 sparse with RRF)
     results = hybrid_search(q, model, client, total_limit=100)
     
     # Ranking & Context

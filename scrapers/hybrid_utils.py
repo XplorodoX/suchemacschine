@@ -1,28 +1,41 @@
-import re
-import unicodedata
-from typing import List
+"""
+Shared utilities for hybrid (dense + sparse BM25) indexing and search.
+Uses fastembed's Qdrant/bm25 model for proper BM25 sparse encoding.
+"""
 
-GERMAN_STOPWORDS = {"der", "die", "das", "ein", "eine", "einer", "einem", "einen", "und", "oder", "aber", "mit", "ohne", "auf", "in", "im", "am", "an", "zu", "zum", "zur", "von", "für", "ist", "sind", "war", "wie", "was", "wer", "wo", "wann", "warum", "welche", "welcher", "welches", "ich", "du", "er", "sie", "es", "wir", "ihr", "nicht", "kein", "keine", "mehr", "auch", "den", "dem", "des", "bei", "über", "unter", "nach"}
+from qdrant_client.models import SparseVector
+from fastembed import SparseTextEmbedding
 
-def normalize_text(t: str) -> str:
-    t = (t or "").lower()
-    t = unicodedata.normalize("NFKC", t)
-    return re.sub(r"\s+", " ", t).strip()
+# Singleton: loaded once, reused everywhere
+_sparse_model = None
 
-def tokenize(t: str) -> List[str]:
-    return [w for w in re.findall(r"[a-zA-Z0-9äöüß]{2,}", normalize_text(t)) if w not in GERMAN_STOPWORDS]
+def get_sparse_model() -> SparseTextEmbedding:
+    global _sparse_model
+    if _sparse_model is None:
+        print("Loading BM25 sparse model (Qdrant/bm25)...")
+        _sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
+        print("✓ BM25 sparse model loaded")
+    return _sparse_model
 
-import hashlib
-def sparse_encode(text: str):
-    tokens = tokenize(text)
-    if not tokens:
-        return {"indices": [], "values": []}
-    counts = {}
-    for tok in tokens:
-        # Deterministic hash
-        idx = int(hashlib.md5(tok.encode()).hexdigest(), 16) % 1000000
-        counts[idx] = counts.get(idx, 0) + 1.0
-    return {
-        "indices": list(counts.keys()),
-        "values": list(counts.values())
-    }
+
+def sparse_encode(text: str) -> SparseVector:
+    """Encode text into a BM25 sparse vector using fastembed."""
+    m = get_sparse_model()
+    result = list(m.embed([text]))[0]
+    return SparseVector(
+        indices=result.indices.tolist(),
+        values=result.values.tolist(),
+    )
+
+
+def sparse_encode_batch(texts: list[str]) -> list[SparseVector]:
+    """Encode a batch of texts into BM25 sparse vectors (more efficient)."""
+    m = get_sparse_model()
+    results = list(m.embed(texts))
+    return [
+        SparseVector(
+            indices=r.indices.tolist(),
+            values=r.values.tolist(),
+        )
+        for r in results
+    ]

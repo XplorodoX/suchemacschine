@@ -62,7 +62,7 @@ with open(SOURCE_FILE, 'r', encoding='utf-8') as f:
             payload={
                 'url': record['url'],
                 'title': record['title'],
-                'content': record.get('content', '')[:500],
+                'content': record.get('content', '')[:2000],
                 'source': record.get('source', 'hs_aalen'),
                 'type': record.get('type', 'webpage')
             }

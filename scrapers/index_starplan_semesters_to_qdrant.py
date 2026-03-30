@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Index Starplan Semester Data to Qdrant
-Erstellt separate Collections für jedes Semester
+Creates separate hybrid collections (dense + BM25 sparse) for each semester
 """
 
 import json
@@ -9,7 +9,8 @@ import logging
 from pathlib import Path
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVectorParams
+from hybrid_utils import sparse_encode
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,62 +32,72 @@ SEMESTER_COLLECTIONS = {
 
 
 def create_collection(collection_name: str):
-    """Create Qdrant collection mit correct config"""
+    """Create hybrid Qdrant collection (dense + BM25 sparse)"""
     try:
-        # Check if collection exists
         collections = client.get_collections()
         existing = [c.name for c in collections.collections]
         
-        if collection_name not in existing:
-            logger.info(f"  Creating collection {collection_name}...")
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
-            )
-            logger.info(f"  ✓ Collection {collection_name} created")
-        else:
-            logger.info(f"  Collection {collection_name} already exists, updating...")
+        if collection_name in existing:
+            logger.info(f"  Collection {collection_name} exists, deleting for re-creation...")
+            client.delete_collection(collection_name)
+        
+        logger.info(f"  Creating hybrid collection {collection_name}...")
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config={
+                "dense": VectorParams(size=384, distance=Distance.COSINE),
+            },
+            sparse_vectors_config={
+                "sparse": SparseVectorParams(),
+            },
+        )
+        logger.info(f"  ✓ Hybrid collection {collection_name} created (dense + BM25 sparse)")
     except Exception as e:
         logger.error(f"  ✗ Error creating collection {collection_name}: {e}")
         raise
 
 
 def index_semester_data(semester_code: str):
-    """Index Starplan data für ein Semester"""
+    """Index Starplan data for a semester with hybrid vectors"""
     
     logger.info(f"\n📚 Indexing {semester_code}...")
     
-    # Get collection name
     collection_name = SEMESTER_COLLECTIONS.get(semester_code, f"starplan_{semester_code}")
-    
-    # Load indexed data
     input_file = f"starplan_{semester_code}_indexed_data.jsonl"
     
     if not Path(input_file).exists():
         logger.warning(f"  ⚠️  File {input_file} not found, skipping...")
         return
     
-    # Create collection
     create_collection(collection_name)
     
-    # Load and index records
     points = []
     with open(input_file, 'r', encoding='utf-8') as f:
         for i, line in enumerate(f, 1):
             record = json.loads(line)
             
+            metadata = record.get('metadata', {})
+            content = record.get('content', '')
+            title = metadata.get('title', '')
+            
+            # Build full text for BM25 sparse encoding
+            full_text = f"{title} {metadata.get('lecturer', '')} {metadata.get('day', '')} {metadata.get('time', '')} {metadata.get('room', '')} {content}"
+            
             point = PointStruct(
                 id=i,
-                vector=record['embedding'],
+                vector={
+                    "dense": record['embedding'],
+                    "sparse": sparse_encode(full_text),
+                },
                 payload={
-                    'title': record['metadata'].get('title', ''),
-                    'lecturer': record['metadata'].get('lecturer', ''),
-                    'day': record['metadata'].get('day', ''),
-                    'time': record['metadata'].get('time', ''),
-                    'room': record['metadata'].get('room', ''),
+                    'title': title,
+                    'lecturer': metadata.get('lecturer', ''),
+                    'day': metadata.get('day', ''),
+                    'time': metadata.get('time', ''),
+                    'room': metadata.get('room', ''),
                     'semester': semester_code,
                     'type': 'timetable',
-                    'content': record['content']
+                    'content': content
                 }
             )
             points.append(point)
@@ -95,10 +106,8 @@ def index_semester_data(semester_code: str):
         logger.warning(f"  ⚠️  No points to index for {semester_code}")
         return
     
-    # Upload points
-    logger.info(f"  Uploading {len(points)} points...")
+    logger.info(f"  Uploading {len(points)} points with BM25 sparse vectors...")
     
-    # Upload in batches
     batch_size = 100
     for i in range(0, len(points), batch_size):
         batch = points[i:i+batch_size]
@@ -135,7 +144,7 @@ def verify_all_collections():
 
 
 def main():
-    logger.info("📚 Starting Semester Data Indexing...")
+    logger.info("📚 Starting Semester Data Indexing (Hybrid: Dense + BM25 Sparse)...")
     
     for semester_code in SEMESTER_COLLECTIONS.keys():
         try:
@@ -143,7 +152,6 @@ def main():
         except Exception as e:
             logger.error(f"  ✗ Error processing {semester_code}: {e}")
     
-    # Verify
     verify_all_collections()
     logger.info("\n✅ Semester indexing complete!")
 
