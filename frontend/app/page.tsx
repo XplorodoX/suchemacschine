@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import SearchBox from '@/components/SearchBox';
 import ResultItem from '@/components/ResultItem';
 import Header from '@/components/Header';
@@ -41,7 +41,7 @@ interface SearchResponse {
   filters?: { intent: string; entity: string };
 }
 
-export default function Home() {
+function SearchContent() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +67,43 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem('searchHistory', JSON.stringify(history));
   }, [history]);
+
+  // Long click Tracking (NavBoost)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Erkennen, wenn User zum Such-Tab zurückkehrt
+      if (document.visibilityState === 'visible' || document.hasFocus()) {
+        const lastUrl = sessionStorage.getItem('lastClickedUrl');
+        const lastQuery = sessionStorage.getItem('lastClickedQuery');
+        const timeStr = sessionStorage.getItem('lastClickedTime');
+        
+        if (lastUrl && lastQuery && timeStr) {
+          const timeSpent = Date.now() - parseInt(timeStr, 10);
+          
+          // Wenn User 20+ Sekunden weg war = Long Click
+          if (timeSpent > 20000) {
+            fetch(`${API_BASE_URL}/api/feedback/click`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: lastQuery, url: lastUrl, type: 'long_click' })
+            }).catch(() => {});
+          }
+          
+          sessionStorage.removeItem('lastClickedUrl');
+          sessionStorage.removeItem('lastClickedQuery');
+          sessionStorage.removeItem('lastClickedTime');
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, []);
 
   // URL-Query übernehmen (z.B. bei Back/Forward)
   useEffect(() => {
@@ -288,5 +325,13 @@ export default function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex flex-col items-center justify-center p-5 bg-[var(--bg)]"><div className="animate-pulse text-[var(--text-secondary)]">Laden...</div></div>}>
+      <SearchContent />
+    </Suspense>
   );
 }
