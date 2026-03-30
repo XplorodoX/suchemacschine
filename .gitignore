@@ -1,0 +1,34 @@
+# Data
+data/
+*.jsonl
+*.json
+!package.json
+!pyproject.toml
+
+# Dependencies
+node_modules/
+.next/
+__pycache__/
+.venv/
+venv/
+env/
+.env
+
+# Build outputs
+out/
+build/
+dist/
+
+# Logs
+*.log
+logs/
+
+# IDE and System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc
+tmp/
+.temp/
