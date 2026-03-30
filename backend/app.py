@@ -2,6 +2,7 @@ import json
 import os
 import re
 import unicodedata
+import math
 from typing import List, Optional, Dict
 from urllib.parse import urlparse
 
@@ -123,6 +124,7 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.2,
             "starplan_timetable": 2.0,
             "asta_content": 0.1,
+            "hs_aalen_pdfs": 0.2,
         }
     if query_type == "asta":
         return {
@@ -130,6 +132,7 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.3,
             "starplan_timetable": 0.1,
             "asta_content": 2.0,
+            "hs_aalen_pdfs": 0.1,
         }
     # General query — balanced
     return {
@@ -137,6 +140,7 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
         "hs_aalen_website": 0.7,
         "starplan_timetable": 0.3,
         "asta_content": 0.4,
+        "hs_aalen_pdfs": 1.2,
     }
 # Common university term synonyms for query expansion
 PROGRAM_SYNONYMS = {
@@ -211,6 +215,7 @@ def hybrid_search(
         "hs_aalen_website": weights.get("hs_aalen_website", 0.7),
         timetable_collection: weights.get("starplan_timetable", 0.3),
         "asta_content": weights.get("asta_content", 0.4),
+        "hs_aalen_pdfs": weights.get("hs_aalen_pdfs", 1.2),
     }
 
     per_collection_limit = max(10, total_limit)
@@ -364,8 +369,12 @@ def _format_results(points, collection_name: str) -> list[dict]:
         )
         is_asta = source == "asta_website"
         is_hs_website = source == "hs_aalen_website"
+        is_pdf = payload_type == "pdf" or str(payload.get("url", "")).lower().endswith(".pdf")
 
-        if is_timetable:
+        if is_pdf:
+            text = payload.get("text", "")
+            result_type = "pdf"
+        elif is_timetable:
             parts = [
                 payload.get("name") or payload.get("title", ""),
                 payload.get("day", ""),
@@ -438,13 +447,13 @@ def _detect_intent_local(q: str) -> dict:
     q_low = q.lower()
     
     if any(w in q_low for w in ["prof", "dozent", "sprechstunde", "professor"]):
-        return {"intent": "PERSON", "entity": q}
+        return {"intent": "person", "entity": q}
     if any(w in q_low for w in ["spo", "ordnung", "satzung", "antrag", "formular", "pdf"]):
-        return {"intent": "DOCUMENT", "entity": q}
+        return {"intent": "document", "entity": q}
     if any(w in q_low for w in ["stundenplan", "vorlesung", "prüfung", "klausur", "termin"]):
-        return {"intent": "TIMETABLE", "entity": q}
+        return {"intent": "timetable", "entity": q}
     
-    return {"intent": "GENERAL", "entity": q}
+    return {"intent": "general", "entity": q}
 
 
 def build_ngrams(tokens: list[str], n: int) -> set[str]:
@@ -556,7 +565,7 @@ def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
 
 
 @app.get("/api/search")
-async def api_search(q: str = Query(...)):
+async def api_search(q: str = Query(...), page: int = Query(1)):
     # Local intent detection (no LLM)
     intent_data = _detect_intent_local(q)
     
@@ -577,15 +586,28 @@ async def api_search(q: str = Query(...)):
             print(f"Error logging query: {e}")
     
     # Hybrid vector search (dense + BM25 sparse with RRF)
-    results = hybrid_search(q, model, client, total_limit=100)
+    # Get plenty of candidates for deep pagination
+    results = hybrid_search(q, model, client, total_limit=150)
     
     # Ranking & Context
     ranked = boost_and_rank(q, results, intent_data)
-    contextualized = fetch_parent_context(ranked)
+    
+    total_results = len(ranked)
+    per_page = 10
+    total_pages = max(1, math.ceil(total_results / per_page))
+    
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    contextualized = fetch_parent_context(ranked[start_idx:end_idx])
     
     return {
-        "results": contextualized[:10], 
-        "total_results": len(ranked), 
+        "results": contextualized, 
+        "total_results": total_results, 
+        "page": page,
+        "total_pages": total_pages,
+        "per_page": per_page,
         "filters": intent_data, 
     }
 

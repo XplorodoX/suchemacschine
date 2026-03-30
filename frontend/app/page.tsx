@@ -50,6 +50,8 @@ function SearchContent() {
   const [responseTime, setResponseTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,31 +125,38 @@ function SearchContent() {
   // URL-Query übernehmen (z.B. bei Back/Forward)
   useEffect(() => {
     const q = searchParams.get('q') || '';
-    if (q && q !== query) {
-      setQuery(q);
-      handleSearch(q, false);
+    const p = parseInt(searchParams.get('page') || '1', 10);
+    if (q) {
+      if (q !== query || p !== currentPage) {
+        setQuery(q);
+        setCurrentPage(p);
+        handleSearch(q, p, false);
+      }
     }
     // eslint-disable-next-line
   }, [searchParams]);
 
-  const handleSearch = async (val: string, pushState = true) => {
+  const handleSearch = async (val: string, page: number = 1, pushState = true) => {
     if (!val.trim()) return;
     setQuery(val);
+    setCurrentPage(page);
     setIsLoading(true);
     setIsLanding(false);
     setError(null);
     setActiveFilter('all');
     const start = performance.now();
     if (pushState) {
-      router.push(`/?q=${encodeURIComponent(val)}`);
+      router.push(`/?q=${encodeURIComponent(val)}&page=${page}`);
     }
-    // Verlauf aktualisieren
-    setHistory(prev => {
-      const arr = [val, ...prev.filter(v => v !== val)];
-      return arr.slice(0, 10);
-    });
+    // Verlauf aktualisieren (nur bei neuen Suchen)
+    if (page === 1) {
+      setHistory(prev => {
+        const arr = [val, ...prev.filter(v => v !== val)];
+        return arr.slice(0, 10);
+      });
+    }
     try {
-      const params = new URLSearchParams({ q: val });
+      const params = new URLSearchParams({ q: val, page: page.toString() });
 
       const res = await fetch(`${API_BASE_URL}/api/search?${params}`);
 
@@ -163,10 +172,12 @@ function SearchContent() {
         throw new Error(`Search failed: ${res.status}`);
       }
 
-      const data: SearchResponse = await res.json();
+      const data = await res.json();
       
       setResults(data.results);
-      setTotalResults(data.total_results);
+      setTotalResults(data.total_results || 0);
+      setTotalPages(data.total_pages || 1);
+      setCurrentPage(data.page || 1);
       setResponseTime(Math.round(performance.now() - start));
       setIsLoading(false);
     } catch (err) {
@@ -191,31 +202,35 @@ function SearchContent() {
         </div>
 
         <SearchBox onSearch={handleSearch} isLanding={true} history={history} recommendations={recommendations} />
+        <div className="mt-8 flex flex-wrap justify-center gap-3 animate-in fade-in zoom-in duration-500 delay-100 fill-mode-both">
+          <button 
+            onClick={() => handleSearch(query)}
+            className="px-6 py-2.5 bg-[var(--surface)] text-[var(--text)] border border-[var(--surface)] hover:border-[var(--border)] rounded-md transition-all shadow-sm hover:shadow text-sm font-medium"
+          >
+            Suche starten
+          </button>
+        </div>
+
         {/* Verlaufsliste */}
         {history.length > 0 && (
-          <div className="mt-4 w-full max-w-[584px] text-left">
-            <div className="text-xs text-[var(--text-secondary)] mb-1">Letzte Suchen:</div>
-            <div className="flex flex-wrap gap-2">
-              {history.map((h, i) => (
+          <div className="mt-8 w-full max-w-[600px] flex flex-col items-center animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both">
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              {history.slice(0, 5).map((h, i) => (
                 <button
                   key={h + i}
                   onClick={() => handleSearch(h)}
-                  className="px-2 py-1 bg-[var(--surface)] border border-[var(--border)] rounded text-xs hover:bg-[var(--accent)] hover:text-white transition-colors"
+                  className="group flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-full text-xs text-[var(--text-secondary)] hover:text-white transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
                 >
+                  <svg className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
                   {h}
                 </button>
               ))}
             </div>
           </div>
         )}
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <button 
-            onClick={() => handleSearch(query)}
-            className="px-6 py-2.5 bg-[var(--surface)] text-[var(--text)] border border-[var(--surface)] hover:border-[var(--border)] rounded-md transition-colors text-sm font-medium"
-          >
-            Suche starten
-          </button>
-        </div>
 
         <div className="mt-12 text-[var(--text-secondary)] text-sm max-w-2xl text-center leading-relaxed opacity-70">
           Durchsuche offizielle Webseiten, PDFs, Prüfungsordnungen und Vorlesungspläne der Hochschule Aalen.
@@ -314,6 +329,33 @@ function SearchContent() {
                   <ResultItem key={`${result.url}-${i}`} result={result} query={query} />
                 ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-6 mt-12 mb-8">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => {
+                    handleSearch(query, currentPage - 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-5 py-2.5 border border-[var(--border)] rounded-md text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--surface)] hover:text-[var(--text)] transition-all"
+                >
+                  Zurück
+                </button>
+                <span className="text-sm font-medium text-[var(--text-secondary)]">Seite {currentPage} von {totalPages}</span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => {
+                    handleSearch(query, currentPage + 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-5 py-2.5 border border-[var(--border)] rounded-md text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--surface)] hover:text-[var(--text)] transition-all"
+                >
+                  Weiter
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
