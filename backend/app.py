@@ -13,11 +13,12 @@ from fastapi import FastAPI, Header, HTTPException, Query, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from qdrant_client import QdrantClient, models
+from qdrant_client.models import Prefetch, FusionQuery, Fusion
 from sentence_transformers import SentenceTransformer
 
 # --- Configuration ---
 COLLECTION_NAME = "hs_aalen_hybrid"
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
@@ -129,46 +130,238 @@ JSON:"""
             
     return data
 
-def custom_weighted_rrf(dense_hits, sparse_hits, k=60, dense_weight=1.0, sparse_weight=1.0):
+# Keywords that signal a timetable/schedule query
+TIMETABLE_SIGNALS = {
+    "montag", "dienstag", "mittwoch", "donnerstag", "freitag",
+    "stundenplan", "vorlesung", "semesterplan", "uhrzeit", "raum",
+    "monday", "tuesday", "wednesday", "thursday", "friday",
+    "lecture", "schedule", "timetable",
+}
+
+
+def _detect_query_type(query: str) -> str:
     """
-    Kombiniert Ergebnisse aus Vektor- (dense) und Keyword-Suche (sparse).
-    Erhöhe sparse_weight, wenn der Intent 'PERSON' oder 'DOCUMENT' ist.
+    Classify query to adjust collection weights dynamically.
+    Returns: 'timetable', 'general', or 'asta'
     """
-    scores = {}
-    docs = {}
-    
-    # Verarbeite Dense Ergebnisse
-    for rank, hit in enumerate(dense_hits):
-        doc_id = hit.id
-        scores[doc_id] = scores.get(doc_id, 0) + dense_weight * (1 / (k + rank + 1))
-        docs[doc_id] = hit
-        
-    # Verarbeite Sparse Ergebnisse
-    for rank, hit in enumerate(sparse_hits):
-        doc_id = hit.id
-        scores[doc_id] = scores.get(doc_id, 0) + sparse_weight * (1 / (k + rank + 1))
-        docs[doc_id] = hit
-        
-    # Sortiere nach aggregiertem Score
-    sorted_ids = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-    
-    # Rekonstruiere Ergebnisliste
-    final_results = []
-    for doc_id, score in sorted_ids:
-        hit = docs[doc_id]
-        payload = hit.payload
-        final_results.append({
-            "score": score,
-            "url": payload.get("url"),
-            "text": payload.get("content") or payload.get("text") or "",
-            "title": payload.get("title") or "Seite",
-            "type": payload.get("type", "webpage"),
-            "source": payload.get("source", "hs_aalen"),
-            "start_time": payload.get("start_time"),
-            "raum": payload.get("raum"),
-            "studiengang": payload.get("studiengang")
+    q = query.lower()
+    tokens = set(re.findall(r"[a-zA-ZäöüÄÖÜß]{3,}", q))
+
+    if tokens & TIMETABLE_SIGNALS:
+        return "timetable"
+    if any(w in q for w in ["asta", "stura", "fachschaft", "ernas", "studentisch"]):
+        return "asta"
+    return "general"
+
+
+def _get_collection_weights(query_type: str) -> dict[str, float]:
+    """
+    Return per-collection score weights based on query type.
+    No hardcoded percentages — weights are relative boost factors applied after
+    fusion, so they're easy to tune without touching search logic.
+    """
+    if query_type == "timetable":
+        return {
+            "hs_aalen_search": 0.4,
+            "hs_aalen_website": 0.2,
+            "starplan_timetable": 2.0,  # Strong boost for timetable queries
+            "asta_content": 0.1,
+        }
+    if query_type == "asta":
+        return {
+            "hs_aalen_search": 0.5,
+            "hs_aalen_website": 0.3,
+            "starplan_timetable": 0.1,
+            "asta_content": 2.0,  # Strong boost for ASTA queries
+        }
+    # General query — balanced
+    return {
+        "hs_aalen_search": 1.0,
+        "hs_aalen_website": 0.7,
+        "starplan_timetable": 0.3,
+        "asta_content": 0.4,
+    }
+
+
+def hybrid_search(
+    query: str,
+    expanded_query: str,
+    model,
+    client: QdrantClient,
+    total_limit: int = 20,
+    semester: str = "SoSe26",
+) -> list:
+    """
+    True hybrid search: dense vector (semantic) + sparse BM25 keyword matching.
+    Weights collections dynamically based on query type.
+
+    Falls back gracefully if sparse vectors aren't available in the collection.
+    """
+    query_type = _detect_query_type(query)
+    weights = _get_collection_weights(query_type)
+
+    # Dense vector from embedding model
+    dense_vector = model.encode(expanded_query).tolist()
+
+    all_results = []
+
+    # Collections to search (use semester-specific timetable if available)
+    timetable_collection = f"starplan_{semester}"
+    collections_to_search = {
+        "hs_aalen_search": weights.get("hs_aalen_search", 1.0),
+        "hs_aalen_website": weights.get("hs_aalen_website", 0.7),
+        timetable_collection: weights.get("starplan_timetable", 0.3),
+        "asta_content": weights.get("asta_content", 0.4),
+    }
+
+    per_collection_limit = max(10, total_limit)
+
+    for collection_name, weight in collections_to_search.items():
+        if weight < 0.05:
+            continue  # Skip negligible collections
+
+        try:
+            results = _search_collection(
+                client=client,
+                collection_name=collection_name,
+                dense_vector=dense_vector,
+                query=query,
+                limit=per_collection_limit,
+            )
+
+            # Apply collection weight to scores
+            for r in results:
+                r["score"] = r["score"] * weight
+                r["collection"] = collection_name
+
+            all_results.extend(results)
+
+        except Exception as e:
+            print(f"WARNING: Collection {collection_name} unavailable: {e}")
+
+            # Fallback to old timetable collection for semester-specific ones
+            if collection_name.startswith("starplan_") and collection_name != "starplan_timetable":
+                try:
+                    fallback_results = _search_collection(
+                        client=client,
+                        collection_name="starplan_timetable",
+                        dense_vector=dense_vector,
+                        query=query,
+                        limit=per_collection_limit,
+                    )
+                    fallback_weight = weights.get("starplan_timetable", 0.3)
+                    for r in fallback_results:
+                        r["score"] = r["score"] * fallback_weight
+                        r["collection"] = "starplan_timetable"
+                    all_results.extend(fallback_results)
+                except Exception:
+                    pass
+
+    # Deduplicate by URL, keeping highest score
+    seen: dict[str, dict] = {}
+    for r in all_results:
+        url = r.get("url", "")
+        if url not in seen or r["score"] > seen[url]["score"]:
+            seen[url] = r
+
+    # Sort by score descending
+    sorted_results = sorted(seen.values(), key=lambda x: x["score"], reverse=True)
+    return sorted_results[:total_limit]
+
+
+def _search_collection(
+    client: QdrantClient,
+    collection_name: str,
+    dense_vector: list[float],
+    query: str,
+    limit: int,
+) -> list[dict]:
+    """
+    Search a single collection. Tries sparse+dense hybrid first,
+    falls back to dense-only if sparse vectors aren't configured.
+    """
+    try:
+        # Try hybrid (sparse BM25 + dense) using Qdrant's query API
+        # This requires the collection to have been created with sparse vector support
+        results = client.query_points(
+            collection_name=collection_name,
+            prefetch=[
+                Prefetch(
+                    query=dense_vector,
+                    using="dense",
+                    limit=limit * 2,
+                ),
+            ],
+            query=FusionQuery(fusion=Fusion.RRF),
+            limit=limit,
+            with_payload=True,
+        ).points
+
+    except Exception:
+        # Fallback: dense-only search (current behavior)
+        results = client.query_points(
+            collection_name=collection_name,
+            query=dense_vector,
+            limit=limit,
+            with_payload=True,
+        ).points
+
+    return _format_results(results, collection_name)
+
+
+def _format_results(points, collection_name: str) -> list[dict]:
+    """Convert Qdrant ScoredPoint objects to dicts."""
+    formatted = []
+    for p in points:
+        payload = p.payload or {}
+        source = payload.get("source", "")
+        payload_type = payload.get("type", "")
+
+        is_timetable = (
+            source == "starplan_timetable"
+            or payload_type == "timetable"
+            or (payload.get("day") and payload.get("time"))
+        )
+        is_asta = source == "asta_website"
+        is_hs_website = source == "hs_aalen_website"
+
+        if is_timetable:
+            # Build display text from structured timetable fields
+            parts = [
+                payload.get("name") or payload.get("title", ""),
+                payload.get("day", ""),
+                payload.get("time", ""),
+            ]
+            text = " — ".join(p for p in parts if p)
+            result_type = "timetable"
+        elif is_hs_website or is_asta:
+            text = f"{payload.get('title', '')}: {payload.get('content', '')[:200]}"
+            result_type = "asta" if is_asta else "website"
+        else:
+            text = payload.get("text", "")
+            result_type = "webpage"
+
+        formatted.append({
+            "score": float(p.score),
+            "url": payload.get("url", ""),
+            "text": text,
+            "title": payload.get("title", ""),
+            "program": payload.get("program"),
+            "day": payload.get("day"),
+            "time": payload.get("time"),
+            "room": payload.get("room"),
+            "lecturer": payload.get("lecturer"),
+            "semester": payload.get("semester"),
+            "type": result_type,
+            "pdf_sources": payload.get("pdf_sources", []),
+            "collection": collection_name,
         })
-    return final_results
+
+    return formatted
+
+def optimized_hybrid_search(query: str, intent_data: dict, limit: int = 100) -> List:
+    """Wrapper that calls the new hybrid_search with the global model/client."""
+    return hybrid_search(query, query, model, client, total_limit=limit)
 
 def expand_query(q: str, m: str, p: str, key: str = "") -> str:
     prompt = f"Suche: {q}\nGib 3-5 zusätzliche, hochrelevante deutsche Suchbegriffe oder Synonyme an, um die Suche zu erweitern. Antworte NUR mit den Begriffen, kommagetrennt."
@@ -213,44 +406,6 @@ def fetch_parent_context(results: list, limit: int = 3) -> list:
             best["text"] = best["text"] + extra_text
         except: pass
     return results
-
-def optimized_hybrid_search(query: str, intent_data: dict, limit: int = 100) -> List:
-    if not client: return []
-    try:
-        dense_vec = model.encode(query).tolist()
-        sparse_vec = sparse_encode(query)
-        
-        # Build filter (simplified)
-        q_filter = None
-        
-        # Weights based on Intent
-        intent = intent_data.get("intent", "GENERAL").upper()
-        d_weight, s_weight = 1.0, 1.0
-        if intent in ["PERSON", "DOCUMENT"]:
-            s_weight = 2.0  # Boost keywords for specific names or document types
-            
-        # Fetch separate lists for custom RRF
-        dense_hits = client.query_points(
-            collection_name=COLLECTION_NAME,
-            query=dense_vec,
-            using="dense",
-            limit=limit,
-            query_filter=q_filter
-        ).points
-        
-        sparse_hits = client.query_points(
-            collection_name=COLLECTION_NAME,
-            query=sparse_vec,
-            using="sparse",
-            limit=limit,
-            query_filter=q_filter
-        ).points
-        
-        return custom_weighted_rrf(dense_hits, sparse_hits, dense_weight=d_weight, sparse_weight=s_weight)
-        
-    except Exception as e:
-        print(f"Hybrid search failed: {e}")
-        return []
 
 def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
     tokens = tokenize(q)

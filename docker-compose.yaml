@@ -23,6 +23,7 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - EMBEDDING_MODEL=paraphrase-multilingual-MiniLM-L12-v2
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate
       - OLLAMA_MODEL=deepseek-r1:8b
       - GITHUB_TOKEN=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
