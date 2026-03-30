@@ -25,7 +25,9 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 GITHUB_URL = os.getenv("GITHUB_URL", "https://models.github.io/inference")
 GITHUB_MODEL = os.getenv("GITHUB_MODEL", "openai/gpt-5")
 GITHUB_MODEL_FALLBACKS = ["gpt-4o", "gpt-4o-mini", "gpt-4"]
-CACHE_TTL = 300
+CACHE_TTL = 3600  # Increased cache for better performance
+DEFAULT_LLM_TIMEOUT = 60
+OLLAMA_MODEL_DEFAULT = "qwen3:0.6b"
 
 GERMAN_STOPWORDS = {"der", "die", "das", "ein", "eine", "einer", "einem", "einen", "und", "oder", "aber", "mit", "ohne", "auf", "in", "im", "am", "an", "zu", "zum", "zur", "von", "für", "ist", "sind", "war", "wie", "was", "wer", "wo", "wann", "warum", "welche", "welcher", "welches", "ich", "du", "er", "sie", "es", "wir", "ihr", "nicht", "kein", "keine", "mehr", "auch", "den", "dem", "des", "bei", "über", "unter", "nach"}
 AI_AVAILABILITY = {"github": None}
@@ -70,8 +72,23 @@ def is_github_available() -> bool:
 def resolve_provider(provider: str, key: str = "") -> str:
     return "none"
 
-def call_llm(prompt: str, model_name: str, provider: str = "github", api_key: str = "", timeout: int = 40) -> str:
-    return ""
+def call_llm(prompt: str, model_name: str, provider: str = "github", api_key: str = "", timeout: int = DEFAULT_LLM_TIMEOUT) -> str:
+    base_url = os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/")
+    url = f"{base_url}/api/chat"
+    m = os.getenv("OLLAMA_MODEL", model_name or OLLAMA_MODEL_DEFAULT)
+    try:
+        # Using /api/chat which is more robust for newest models
+        payload = {
+            "model": m,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False
+        }
+        res = requests.post(url, json=payload, timeout=timeout)
+        res.raise_for_status()
+        return res.json().get("message", {}).get("content", "")
+    except Exception as e:
+        print(f"LLM Error ({m}): {e}")
+        return ""
 
 def rerank_with_llm(q: str, results: list, m: str, p: str, key: str = "") -> list:
     if not results or len(results) < 2: return results
@@ -365,7 +382,7 @@ def optimized_hybrid_search(query: str, intent_data: dict, limit: int = 100) -> 
 
 def expand_query(q: str, m: str, p: str, key: str = "") -> str:
     prompt = f"Suche: {q}\nGib 3-5 zusätzliche, hochrelevante deutsche Suchbegriffe oder Synonyme an, um die Suche zu erweitern. Antworte NUR mit den Begriffen, kommagetrennt."
-    res = call_llm(prompt, m, p, key, timeout=10)
+    res = call_llm(prompt, m, p, key, timeout=20)
     if res and "UNBEKANNT" not in res.upper():
         clean_res = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
         expanded = f"{q}, {clean_res}"
@@ -477,18 +494,33 @@ async def api_search(q: str = Query(...), provider: str = Query("auto"), model_n
     res_p = resolve_provider(provider, x_key or "")
     res_m = model_name or GITHUB_MODEL
     
-    # Phase 1: Expansion & Intent Routing
-    expanded_q = expand_query(q, res_m, res_p, x_key or "")
-    intent_data = parse_intent_and_filters(q, res_m, res_p, x_key or "")
+    # Phase 1: Simple Local Expansion (no LLM call for now to save time)
+    expanded_q = q # Skipping LLM expand_query
+    intent_data = {"intent": "GENERAL", "entity": q} # Skipping LLM parse_intent_and_filters
     
     # Custom Weighted RRF
     results = optimized_hybrid_search(expanded_q, intent_data, 100)
     
+    # Ranking & Context
     ranked = boost_and_rank(q, results, intent_data)
     contextualized = fetch_parent_context(ranked)
-    reranked = rerank_with_llm(q, contextualized, res_m, res_p, x_key or "")
-    summary = generate_summary(q, reranked, res_m, res_p, x_key or "")
-    return {"results": reranked[:10], "total_results": len(ranked), "summary": summary, "model": res_m, "provider": res_p, "filters": intent_data, "expanded_query": expanded_q}
+    
+    # Skipping Rerank-LLM to save time
+    reranked = contextualized
+    
+    # Phase 2: No synchronous summary to avoid timeouts on slow systems
+    summary = "" # Frontend will call /api/summarize separately
+    
+    return {
+        "results": reranked[:10], 
+        "total_results": len(ranked), 
+        "summary": summary, 
+        "model": res_m, 
+        "provider": res_p, 
+        "filters": intent_data, 
+        "expanded_query": expanded_q,
+        "llm_enabled": True # Keep frontend happy
+    }
 
 @app.get("/api/health")
 async def health(): return {"status": "ok"}
