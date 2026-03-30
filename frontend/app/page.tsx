@@ -56,6 +56,21 @@ function SearchContent() {
 
   // Verlauf (max. 10 Einträge)
   const [history, setHistory] = useState<string[]>([]);
+  const [recommendations, setRecommendations] = useState<string[]>(RECOMMENDATIONS);
+
+  // Lade dynamische Vorschläge vom Backend
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/suggestions`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.suggestions && data.suggestions.length > 0) {
+          // Kombiniere populäre Community-Suchen (vorne) mit statischen (hinten), max 15
+          const merged = Array.from(new Set([...data.suggestions, ...RECOMMENDATIONS])).slice(0, 15);
+          setRecommendations(merged);
+        }
+      })
+      .catch(err => console.error("Failed to fetch suggestions", err));
+  }, []);
 
   // Lade Verlauf aus LocalStorage beim Start
   useEffect(() => {
@@ -175,7 +190,7 @@ function SearchContent() {
           </h1>
         </div>
 
-        <SearchBox onSearch={handleSearch} isLanding={true} history={history} recommendations={RECOMMENDATIONS} />
+        <SearchBox onSearch={handleSearch} isLanding={true} history={history} recommendations={recommendations} />
         {/* Verlaufsliste */}
         {history.length > 0 && (
           <div className="mt-4 w-full max-w-[584px] text-left">
@@ -222,7 +237,7 @@ function SearchContent() {
             <span className="text-[#81c995]">Aalen</span>
           </div>
           <div className="flex-1 max-w-[692px]">
-            <SearchBox onSearch={handleSearch} initialValue={query} history={history} recommendations={RECOMMENDATIONS} />
+            <SearchBox onSearch={handleSearch} initialValue={query} history={history} recommendations={recommendations} />
           </div>
         </div>
         

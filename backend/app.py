@@ -41,6 +41,12 @@ def init_db():
                 PRIMARY KEY (query, url)
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS query_stats (
+                query TEXT PRIMARY KEY,
+                search_count INTEGER DEFAULT 1
+            )
+        ''')
         conn.commit()
         conn.close()
     except Exception as e:
@@ -554,6 +560,22 @@ async def api_search(q: str = Query(...)):
     # Local intent detection (no LLM)
     intent_data = _detect_intent_local(q)
     
+    q_clean = q.lower().strip()
+    if len(q_clean) >= 3:
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            cur = conn.cursor()
+            cur.execute("SELECT search_count FROM query_stats WHERE query = ?", (q_clean,))
+            row = cur.fetchone()
+            if row:
+                cur.execute("UPDATE query_stats SET search_count = search_count + 1 WHERE query = ?", (q_clean,))
+            else:
+                cur.execute("INSERT INTO query_stats (query, search_count) VALUES (?, 1)", (q_clean,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error logging query: {e}")
+    
     # Hybrid vector search (dense + BM25 sparse with RRF)
     results = hybrid_search(q, model, client, total_limit=100)
     
@@ -597,6 +619,19 @@ async def register_click(data: FeedbackRequest):
     except Exception as e:
         print(f"DB Error: {e}")
         return {"status": "error", "message": str(e)}
+
+@app.get("/api/suggestions")
+async def api_suggestions():
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cur = conn.cursor()
+        cur.execute("SELECT query FROM query_stats ORDER BY search_count DESC LIMIT 15")
+        rows = cur.fetchall()
+        conn.close()
+        return {"suggestions": [row[0].title() for row in rows]}
+    except Exception as e:
+        print(f"Suggestions Error: {e}")
+        return {"suggestions": []}
 
 @app.get("/api/health")
 async def health(): return {"status": "ok"}
