@@ -17,8 +17,6 @@ COPY *.py ./
 # Environment Variables (Overridden by compose)
 ENV QDRANT_HOST=qdrant
 ENV QDRANT_PORT=6333
-ENV OLLAMA_URL=http://host.containers.internal:11434/api/generate
-ENV OLLAMA_MODEL=deepseek-r1:8b
 
 # Expose the API port
 EXPOSE 8000

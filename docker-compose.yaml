@@ -24,11 +24,6 @@ services:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - EMBEDDING_MODEL=paraphrase-multilingual-MiniLM-L12-v2
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:0.5b
-      - GITHUB_TOKEN=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
-      - GITHUB_MODEL=qwen2.5:0.5b
-      - RATE_LIMIT_PER_HOUR=100
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -65,23 +60,5 @@ services:
     depends_on:
       - qdrant
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama-service
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_storage:/root/.ollama
-    restart: always
-
-  ollama-pull:
-    image: curlimages/curl:latest
-    container_name: ollama-pull-service
-    entrypoint: /bin/sh
-    command: ["-c", "sleep 10 && curl -v -X POST http://ollama:11434/api/pull -d '{\"name\": \"qwen2.5:0.5b\"}'"]
-    depends_on:
-      - ollama
-
 volumes:
   qdrant_storage:
-  ollama_storage:

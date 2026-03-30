@@ -2,16 +2,11 @@ import json
 import os
 import re
 import unicodedata
-from datetime import datetime
-import asyncio
-import concurrent.futures
 from typing import List, Optional, Dict
 from urllib.parse import urlparse
 
-import requests
-from fastapi import FastAPI, Header, HTTPException, Query, Request, Body
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import Prefetch, FusionQuery, Fusion
 from sentence_transformers import SentenceTransformer
@@ -21,18 +16,10 @@ COLLECTION_NAME = "hs_aalen_hybrid"
 MODEL_NAME = os.getenv("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
-GITHUB_URL = os.getenv("GITHUB_URL", "https://models.github.io/inference")
-GITHUB_MODEL = os.getenv("GITHUB_MODEL", "openai/gpt-5")
-GITHUB_MODEL_FALLBACKS = ["gpt-4o", "gpt-4o-mini", "gpt-4"]
-CACHE_TTL = 3600  # Increased cache for better performance
-DEFAULT_LLM_TIMEOUT = 60
-OLLAMA_MODEL_DEFAULT = "qwen3:0.6b"
 
 GERMAN_STOPWORDS = {"der", "die", "das", "ein", "eine", "einer", "einem", "einen", "und", "oder", "aber", "mit", "ohne", "auf", "in", "im", "am", "an", "zu", "zum", "zur", "von", "für", "ist", "sind", "war", "wie", "was", "wer", "wo", "wann", "warum", "welche", "welcher", "welches", "ich", "du", "er", "sie", "es", "wir", "ihr", "nicht", "kein", "keine", "mehr", "auch", "den", "dem", "des", "bei", "über", "unter", "nach"}
-AI_AVAILABILITY = {"github": None}
 
-app = FastAPI(title="HS Aalen AI Search")
+app = FastAPI(title="HS Aalen Search")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 print("Loading Embedding Model...")
@@ -62,91 +49,6 @@ def sparse_encode(text: str) -> models.SparseVector:
         counts[idx] = counts.get(idx, 0) + 1.0
     return models.SparseVector(indices=list(counts.keys()), values=list(counts.values()))
 
-def is_github_available() -> bool:
-    if not os.getenv("GITHUB_TOKEN"): return False
-    now = datetime.now().timestamp()
-    if AI_AVAILABILITY["github"] and now - AI_AVAILABILITY["github"][0] < CACHE_TTL: return AI_AVAILABILITY["github"][1]
-    AI_AVAILABILITY["github"] = (now, True)
-    return True
-
-def resolve_provider(provider: str, key: str = "") -> str:
-    return "none"
-
-def call_llm(prompt: str, model_name: str, provider: str = "github", api_key: str = "", timeout: int = DEFAULT_LLM_TIMEOUT) -> str:
-    base_url = os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/")
-    url = f"{base_url}/api/chat"
-    m = os.getenv("OLLAMA_MODEL", model_name or OLLAMA_MODEL_DEFAULT)
-    try:
-        # Using /api/chat which is more robust for newest models
-        payload = {
-            "model": m,
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": False
-        }
-        res = requests.post(url, json=payload, timeout=timeout)
-        res.raise_for_status()
-        return res.json().get("message", {}).get("content", "")
-    except Exception as e:
-        print(f"LLM Error ({m}): {e}")
-        return ""
-
-def rerank_with_llm(q: str, results: list, m: str, p: str, key: str = "") -> list:
-    if not results or len(results) < 2: return results
-    subset = results[:10]
-    snippets = ""
-    for i, r in enumerate(subset):
-        text = r.get("text", "")[:150].replace("\n", " ")
-        snippets += f"ID {i}: {text}\n"
-    prompt = f"Anfrage: {q}\nOrdne diese IDs nach Relevanz (beste zuerst): {snippets}\nAntwort NUR als Liste: [ID1, ID2...]"
-    res = call_llm(prompt, m, p, key)
-    try:
-        new_ids = [int(i) for i in re.findall(r"\d+", res) if 0 <= int(i) < len(subset)]
-        if new_ids:
-            reranked = [subset[i] for i in new_ids]
-            seen_urls = {r.get("url") for r in reranked if r.get("url")}
-            for r in subset:
-                if r.get("url") and r["url"] not in seen_urls: reranked.append(r)
-            return reranked + results[10:]
-    except: pass
-    return results
-
-def parse_intent_and_filters(q: str, m: str, p: str, key: str = "") -> dict:
-    """Classify user intent and extract entities using Few-Shot prompting."""
-    prompt = f"""Du bist ein präziser Router für die Hochschul-KI Aalen. Deine Aufgabe ist es, die Nutzeranfrage zu klassifizieren und Entitäten zu extrahieren. Antworte AUSSCHLIESSLICH im JSON-Format.
-
-Kategorien:
-- PERSON: Suche nach Professoren, Mitarbeitern, Sprechstunden.
-- TIMETABLE: Vorlesungen, Prüfungsphasen, Termine aus Starplan.
-- DOCUMENT: SPO, Satzungen, Anträge, Formulare (PDF-Fokus).
-- GENERAL: Mensa, Parken, allgemeine Campus-Infos.
-
-Beispiele:
-Nutzer: "Wann hat Prof. Müller Sprechstunde?"
-JSON: {{"intent": "PERSON", "entity": "Müller", "boost_pdf": false, "time_filter": null}}
-
-Nutzer: "Ich brauche die SPO für Informatik 2023"
-JSON: {{"intent": "DOCUMENT", "entity": "SPO Informatik", "boost_pdf": true, "time_filter": "2023"}}
-
-Nutzer: "Was gibt es heute in der Mensa?"
-JSON: {{"intent": "GENERAL", "entity": "Mensa", "boost_pdf": false, "time_filter": "today"}}
-
-Nutzer: {q}
-JSON:"""
-    
-    res = call_llm(prompt, m, p, key)
-    data = {"intent": "GENERAL", "entity": q}
-    
-    # LLM Parsing
-    try:
-        res_clean = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
-        match = re.search(r"\{.*\}", res_clean, re.DOTALL)
-        if match:
-            llm_data = json.loads(match.group(0).replace("'", '"'))
-            data.update(llm_data)
-    except: pass
-            
-    return data
-
 # Keywords that signal a timetable/schedule query
 TIMETABLE_SIGNALS = {
     "montag", "dienstag", "mittwoch", "donnerstag", "freitag",
@@ -174,14 +76,12 @@ def _detect_query_type(query: str) -> str:
 def _get_collection_weights(query_type: str) -> dict[str, float]:
     """
     Return per-collection score weights based on query type.
-    No hardcoded percentages — weights are relative boost factors applied after
-    fusion, so they're easy to tune without touching search logic.
     """
     if query_type == "timetable":
         return {
             "hs_aalen_search": 0.4,
             "hs_aalen_website": 0.2,
-            "starplan_timetable": 2.0,  # Strong boost for timetable queries
+            "starplan_timetable": 2.0,
             "asta_content": 0.1,
         }
     if query_type == "asta":
@@ -189,7 +89,7 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_search": 0.5,
             "hs_aalen_website": 0.3,
             "starplan_timetable": 0.1,
-            "asta_content": 2.0,  # Strong boost for ASTA queries
+            "asta_content": 2.0,
         }
     # General query — balanced
     return {
@@ -202,7 +102,6 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
 
 def hybrid_search(
     query: str,
-    expanded_query: str,
     model,
     client: QdrantClient,
     total_limit: int = 20,
@@ -211,14 +110,12 @@ def hybrid_search(
     """
     True hybrid search: dense vector (semantic) + sparse BM25 keyword matching.
     Weights collections dynamically based on query type.
-
-    Falls back gracefully if sparse vectors aren't available in the collection.
     """
     query_type = _detect_query_type(query)
     weights = _get_collection_weights(query_type)
 
     # Dense vector from embedding model
-    dense_vector = model.encode(expanded_query).tolist()
+    dense_vector = model.encode(query).tolist()
 
     all_results = []
 
@@ -235,7 +132,7 @@ def hybrid_search(
 
     for collection_name, weight in collections_to_search.items():
         if weight < 0.05:
-            continue  # Skip negligible collections
+            continue
 
         try:
             results = _search_collection(
@@ -246,7 +143,6 @@ def hybrid_search(
                 limit=per_collection_limit,
             )
 
-            # Apply collection weight to scores
             for r in results:
                 r["score"] = r["score"] * weight
                 r["collection"] = collection_name
@@ -298,8 +194,6 @@ def _search_collection(
     falls back to dense-only if sparse vectors aren't configured.
     """
     try:
-        # Try hybrid (sparse BM25 + dense) using Qdrant's query API
-        # This requires the collection to have been created with sparse vector support
         results = client.query_points(
             collection_name=collection_name,
             prefetch=[
@@ -315,7 +209,7 @@ def _search_collection(
         ).points
 
     except Exception:
-        # Fallback: dense-only search (current behavior)
+        # Fallback: dense-only search
         results = client.query_points(
             collection_name=collection_name,
             query=dense_vector,
@@ -343,7 +237,6 @@ def _format_results(points, collection_name: str) -> list[dict]:
         is_hs_website = source == "hs_aalen_website"
 
         if is_timetable:
-            # Build display text from structured timetable fields
             parts = [
                 payload.get("name") or payload.get("title", ""),
                 payload.get("day", ""),
@@ -376,25 +269,12 @@ def _format_results(points, collection_name: str) -> list[dict]:
 
     return formatted
 
-def optimized_hybrid_search(query: str, intent_data: dict, limit: int = 100) -> List:
-    """Wrapper that calls the new hybrid_search with the global model/client."""
-    return hybrid_search(query, query, model, client, total_limit=limit)
-
-def expand_query(q: str, m: str, p: str, key: str = "") -> str:
-    prompt = f"Suche: {q}\nGib 3-5 zusätzliche, hochrelevante deutsche Suchbegriffe oder Synonyme an, um die Suche zu erweitern. Antworte NUR mit den Begriffen, kommagetrennt."
-    res = call_llm(prompt, m, p, key, timeout=20)
-    if res and "UNBEKANNT" not in res.upper():
-        clean_res = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
-        expanded = f"{q}, {clean_res}"
-        return expanded
-    return q
 
 def fetch_parent_context(results: list, limit: int = 3) -> list:
     """Fetch additional lectures for the same day/program if a lecture is found."""
     lectures = [r for r in results if r.get("type") == "timetable" and r.get("start_time")]
     if not lectures: return results
     
-    # Take the best lecture hit
     best = lectures[0]
     p_id = best.get("studiengang")
     s_time = best.get("start_time")
@@ -414,7 +294,6 @@ def fetch_parent_context(results: list, limit: int = 3) -> list:
                 with_payload=True
             )[0]
             
-            # Add context to the first result text
             extra_text = "\nKontext (andere Termine an diesem Tag):\n"
             for p in context_results:
                 payload = p.payload
@@ -423,6 +302,21 @@ def fetch_parent_context(results: list, limit: int = 3) -> list:
             best["text"] = best["text"] + extra_text
         except: pass
     return results
+
+
+def _detect_intent_local(q: str) -> dict:
+    """Simple rule-based intent detection without LLM."""
+    q_low = q.lower()
+    
+    if any(w in q_low for w in ["prof", "dozent", "sprechstunde", "professor"]):
+        return {"intent": "PERSON", "entity": q}
+    if any(w in q_low for w in ["spo", "ordnung", "satzung", "antrag", "formular", "pdf"]):
+        return {"intent": "DOCUMENT", "entity": q}
+    if any(w in q_low for w in ["stundenplan", "vorlesung", "prüfung", "klausur", "termin"]):
+        return {"intent": "TIMETABLE", "entity": q}
+    
+    return {"intent": "GENERAL", "entity": q}
+
 
 def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
     tokens = tokenize(q)
@@ -459,78 +353,27 @@ def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
             
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
-def generate_summary(q: str, results: list, m: str, p: str, key: str = "") -> str:
-    # PERMISSIVE THRESHOLD: even low RRF scores are valid
-    if not results or results[0]["score"] < 0.0001: 
-        print(f"Summary skipped: No results or score too low ({results[0]['score'] if results else 'N/A'})")
-        return ""
-    
-    # Increase snippet count for better context
-    snippets = ""
-    for i, r in enumerate(results[:5]):
-        snippets += f"[{i+1}] {r.get('url','')}: {r.get('text','')[:400]}\n\n"
-        
-    p_prompt = f"""Anfrage: {q}
-Basierend auf diesen Informationen der Hochschule Aalen:
-{snippets}
-
-Beantworte die Anfrage kurz und präzise in der Du-Form. 
-Nutze Quellenangaben wie [1], [2]. 
-Falls die Information absolut nicht vorhanden ist, antworte NUR mit 'UNBEKANNT'."""
-
-    res = call_llm(p_prompt, m, p, key)
-    res_clean = re.sub(r"<think>.*?</think>", "", res, flags=re.DOTALL).strip()
-    
-    if "UNBEKANNT" in res_clean.upper() and len(res_clean) < 20:
-        return ""
-    return res_clean
-
-@app.get("/api/models")
-async def api_models(provider: str = Query("auto"), x_key: Optional[str] = Header(None, alias="X-OpenAI-Key")):
-    return {"models": []}
 
 @app.get("/api/search")
-async def api_search(q: str = Query(...), provider: str = Query("auto"), model_name: Optional[str] = Query(None), x_key: Optional[str] = Header(None, alias="X-OpenAI-Key")):
-    res_p = resolve_provider(provider, x_key or "")
-    res_m = model_name or GITHUB_MODEL
+async def api_search(q: str = Query(...)):
+    # Local intent detection (no LLM)
+    intent_data = _detect_intent_local(q)
     
-    # Phase 1: Simple Local Expansion (no LLM call for now to save time)
-    expanded_q = q # Skipping LLM expand_query
-    intent_data = {"intent": "GENERAL", "entity": q} # Skipping LLM parse_intent_and_filters
-    
-    # Custom Weighted RRF
-    results = optimized_hybrid_search(expanded_q, intent_data, 100)
+    # Hybrid vector search
+    results = hybrid_search(q, model, client, total_limit=100)
     
     # Ranking & Context
     ranked = boost_and_rank(q, results, intent_data)
     contextualized = fetch_parent_context(ranked)
     
-    # Skipping Rerank-LLM to save time
-    reranked = contextualized
-    
-    # Phase 2: No synchronous summary to avoid timeouts on slow systems
-    summary = "" # Frontend will call /api/summarize separately
-    
     return {
-        "results": reranked[:10], 
+        "results": contextualized[:10], 
         "total_results": len(ranked), 
-        "summary": summary, 
-        "model": res_m, 
-        "provider": res_p, 
         "filters": intent_data, 
-        "expanded_query": expanded_q,
-        "llm_enabled": True # Keep frontend happy
     }
 
 @app.get("/api/health")
 async def health(): return {"status": "ok"}
-
-@app.post("/api/summarize")
-async def api_summarize(q: str = Body(...), results: list = Body(...), provider: str = Body("auto"), model_name: Optional[str] = Body(None), x_key: Optional[str] = Header(None, alias="X-OpenAI-Key")):
-    res_p = resolve_provider(provider, x_key or "")
-    res_m = model_name or GITHUB_MODEL
-    s = generate_summary(q, results, res_m, res_p, x_key or "")
-    return {"summary": s, "model": res_m, "provider": res_p}
 
 if __name__ == "__main__":
     import uvicorn
