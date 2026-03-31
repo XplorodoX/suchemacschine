@@ -7,6 +7,13 @@ import tempfile
 from urllib.parse import urljoin, urlparse
 
 import requests
+import warnings
+import logging
+
+# pypdf writes "Ignoring wrong pointing object" directly after stderr —
+# das sind Warnungen bei malformed PDFs, kein Fehler
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+
 
 try:
     from pypdf import PdfReader
@@ -63,11 +70,13 @@ def extract_pdf_text(file_path: str) -> Optional[str]:
     # Try pdfplumber first (more reliable for complex PDFs)
     if pdf_open is not None:
         try:
-            with pdf_open(file_path) as pdf:
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text_content.append(page_text)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with pdf_open(file_path) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_content.append(page_text)
             if text_content:
                 full_text = "\n".join(text_content)
                 if len(full_text.strip()) > 100:
@@ -78,11 +87,13 @@ def extract_pdf_text(file_path: str) -> Optional[str]:
     # Fallback to pypdf
     if PdfReader is not None:
         try:
-            reader = PdfReader(file_path)
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text_content.append(page_text)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")  # pypdf-Warnungen unterdrücken
+                reader = PdfReader(file_path)
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_content.append(page_text)
             if text_content:
                 full_text = "\n".join(text_content)
                 if len(full_text.strip()) > 100:
@@ -91,9 +102,10 @@ def extract_pdf_text(file_path: str) -> Optional[str]:
             print(f"    pypdf failed: {e}")
 
     # Try OCR if text extraction failed (PDF might be a scan)
-    print("    Trying OCR for scanned PDF...")
+    print(f"    Trying OCR for scanned PDF (pytesseract available: {pytesseract is not None})...")
     ocr_text = extract_pdf_text_with_ocr(file_path)
     if ocr_text and len(ocr_text.strip()) > 100:
+        print(f"    ✓ OCR successful: {len(ocr_text)} chars extracted.")
         return ocr_text
     
     return None
