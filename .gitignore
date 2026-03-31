@@ -33,4 +33,8 @@ Thumbs.db
 tmp/
 .temp/
 
+# Core dumps
+scrapers/core.*
+core.*
+
 ana/

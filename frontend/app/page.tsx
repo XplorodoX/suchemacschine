@@ -202,14 +202,6 @@ function SearchContent() {
         </div>
 
         <SearchBox onSearch={handleSearch} isLanding={true} history={history} recommendations={recommendations} />
-        <div className="mt-8 flex flex-wrap justify-center gap-3 animate-in fade-in zoom-in duration-500 delay-100 fill-mode-both">
-          <button 
-            onClick={() => handleSearch(query)}
-            className="px-6 py-2.5 bg-[var(--surface)] text-[var(--text)] border border-[var(--surface)] hover:border-[var(--border)] rounded-md transition-all shadow-sm hover:shadow text-sm font-medium"
-          >
-            Suche starten
-          </button>
-        </div>
 
         {/* Verlaufsliste */}
         {history.length > 0 && (
