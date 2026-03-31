@@ -412,35 +412,88 @@ def extract_jsonld_sections(soup):
     return sections
 
 
+def maybe_add_template_section(url: str, main_container, h1: str):
+    sections = []
+    main_text = clean_text(main_container.get_text(separator=" ", strip=True))
+
+    if is_person_page(url):
+        if main_text:
+            sections.append({"heading": h1 or "Person", "text": main_text})
+
+    if is_event_page(url) and main_text:
+        trimmed = re.split(r"Weitere Veranstaltungen", main_text, maxsplit=1, flags=re.IGNORECASE)[0]
+        trimmed = clean_text(trimmed)
+        if trimmed:
+            sections.append({"heading": h1 or "Veranstaltung", "text": trimmed})
+
+    return sections
+
+
 def extract_sections(main_container):
+    """
+    Walk the main content container and build sections keyed by the most
+    recent heading.
+
+    Changes vs. the original:
+    1. Heading-only sections are NO LONGER silently dropped.  When a heading
+       has no following body text the heading string itself is stored as the
+       section text so it ends up in the searchable `content` field.
+    2. Leaf <div> elements are now scanned in addition to the original tag
+       list.  This captures card/timeline descriptions that live in
+       `<div class="…__description">` wrappers without being duplicated from
+       their parent containers.
+    3. The minimum-length gate now uses 4 chars (instead of 20) when the
+       heading is itself meaningful, so short-but-real headings survive.
+    """
+
+    _BLOCK_TAGS = {"h1", "h2", "h3", "p", "li", "dt", "dd", "td", "th", "div"}
+    _HEADING_TAGS = {"h1", "h2", "h3"}
+
+    def _is_leaf_div(el):
+        """Return True when a <div> contains no nested block elements."""
+        return not el.find(_BLOCK_TAGS)
+
     sections = []
     current_heading = "Allgemein"
     current_text_parts = []
 
-    for element in main_container.find_all(["h1", "h2", "h3", "p", "li", "dt", "dd", "td", "th"], recursive=True):
+    for element in main_container.find_all(list(_BLOCK_TAGS), recursive=True):
+        # Only process leaf divs to avoid duplicating text from nested blocks.
+        if element.name == "div" and not _is_leaf_div(element):
+            continue
+
         text = clean_text(element.get_text(separator=" ", strip=True))
         if not text:
             continue
-        if element.name in {"h1", "h2", "h3"}:
-            if current_text_parts:
-                sections.append({"heading": current_heading, "text": clean_text(" ".join(current_text_parts))})
-                current_text_parts = []
+
+        if element.name in _HEADING_TAGS:
+            # Flush the current accumulator.  If it's empty we still emit the
+            # heading so that it contributes to the searchable content.
+            flush_text = clean_text(" ".join(current_text_parts)) if current_text_parts else current_heading
+            sections.append({"heading": current_heading, "text": flush_text})
+            current_text_parts = []
             current_heading = text
         else:
             current_text_parts.append(text)
 
-    if current_text_parts:
-        sections.append({"heading": current_heading, "text": clean_text(" ".join(current_text_parts))})
+    # Final flush
+    flush_text = clean_text(" ".join(current_text_parts)) if current_text_parts else current_heading
+    sections.append({"heading": current_heading, "text": flush_text})
 
-    deduped = []
-    seen = set()
+    deduped_sections = []
+    seen: set = set()
     for section in sections:
-        key = (section["heading"], section["text"])
-        if key in seen or len(section["text"]) < 20:
+        heading = section.get("heading", "")
+        text = section.get("text", "")
+        # Accept short text when the heading itself is meaningful (>= 4 chars).
+        min_len = 4 if len(heading) >= 4 else 20
+        key = (heading, text)
+        if key in seen or len(text) < min_len:
             continue
         seen.add(key)
-        deduped.append(section)
-    return deduped
+        deduped_sections.append(section)
+
+    return deduped_sections
 
 
 def extract_structured_from_html(html: str, url: str):
@@ -469,10 +522,11 @@ def extract_structured_from_html(html: str, url: str):
     h1 = clean_text(h1_tag.get_text()) if h1_tag else ""
 
     sections = extract_sections(main_container)
+    sections.extend(maybe_add_template_section(url, main_container, h1))
     sections.extend(jsonld_sections)
 
-    deduped = []
-    seen = set()
+    deduped_sections = []
+    seen: set = set()
     for section in sections:
         heading = clean_text(section.get("heading", ""))
         text = clean_text(section.get("text", ""))
@@ -482,16 +536,31 @@ def extract_structured_from_html(html: str, url: str):
         if key in seen:
             continue
         seen.add(key)
-        deduped.append({"heading": heading or "Allgemein", "text": text})
-    sections = deduped
+        deduped_sections.append({"heading": heading or "Allgemein", "text": text})
+
+    sections = deduped_sections
 
     if not sections:
         fallback_text = clean_text(main_container.get_text(separator=" ", strip=True))
         if fallback_text:
             sections = [{"heading": h1 or "Allgemein", "text": fallback_text}]
 
-    content = clean_text(" ".join(s["text"] for s in sections))
-    headings = [s["heading"] for s in sections if s.get("heading")]
+    # ---------------------------------------------------------------------------
+    # FIX: include heading text in the searchable content string
+    # Previously only section["text"] was joined; now non-generic headings are
+    # prepended so queries like "Magic: The Gathering" can match.
+    # ---------------------------------------------------------------------------
+    content_parts = []
+    for section in sections:
+        heading = section.get("heading", "")
+        text = section.get("text", "")
+        # Avoid duplicating when heading == text (heading-only sections)
+        if heading and heading != "Allgemein" and heading not in text:
+            content_parts.append(heading)
+        content_parts.append(text)
+
+    content = clean_text(" ".join(content_parts))
+    headings = [section["heading"] for section in sections if section.get("heading")]
 
     return {
         "url": url,
