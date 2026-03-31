@@ -256,35 +256,39 @@ function SearchContent() {
           </div>
         </div>
         
-        <div className="px-5 lg:pl-[184px]">
-          <div className="flex items-center gap-6 border-b border-[var(--border)] mb-6 scrollbar-hide overflow-x-auto">
+        <div className="px-5 lg:pl-[120px]">
+          <div className="flex items-center gap-8 scrollbar-hide overflow-x-auto">
             <button 
               onClick={() => setActiveFilter('all')}
-              className={`pb-3 text-sm font-medium transition-all relative ${activeFilter === 'all' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--text)]'}`}
+              className={`tab-btn ${activeFilter === 'all' ? 'tab-btn-active' : 'tab-btn-inactive'}`}
             >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Alle
-              {activeFilter === 'all' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[var(--accent)]" />}
+              {activeFilter === 'all' && <div className="tab-underline" />}
             </button>
             <button 
               onClick={() => setActiveFilter('timetable')}
-              className={`pb-3 text-sm font-medium transition-all relative ${activeFilter === 'timetable' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--text)]'}`}
+              className={`tab-btn ${activeFilter === 'timetable' ? 'tab-btn-active' : 'tab-btn-inactive'}`}
             >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
               Vorlesungen
-              {activeFilter === 'timetable' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[var(--accent)]" />}
+              {activeFilter === 'timetable' && <div className="tab-underline" />}
             </button>
             <button 
               onClick={() => setActiveFilter('website')}
-              className={`pb-3 text-sm font-medium transition-all relative ${activeFilter === 'website' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--text)]'}`}
+              className={`tab-btn ${activeFilter === 'website' ? 'tab-btn-active' : 'tab-btn-inactive'}`}
             >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
               Webseiten
-              {activeFilter === 'website' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[var(--accent)]" />}
+              {activeFilter === 'website' && <div className="tab-underline" />}
             </button>
             <button 
               onClick={() => setActiveFilter('pdf')}
-              className={`pb-3 text-sm font-medium transition-all relative ${activeFilter === 'pdf' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--text)]'}`}
+              className={`tab-btn ${activeFilter === 'pdf' ? 'tab-btn-active' : 'tab-btn-inactive'}`}
             >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               PDFs
-              {activeFilter === 'pdf' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[var(--accent)]" />}
+              {activeFilter === 'pdf' && <div className="tab-underline" />}
             </button>
           </div>
         </div>

@@ -73,26 +73,60 @@ export default function SearchBox({ onSearch, initialValue = '', isLanding = fal
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </span>
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query && setShowDropdown(true)}
-          onKeyDown={handleKeyDown}
-          placeholder="Suche an der Hochschule Aalen..."
-          className="flex-1 bg-transparent border-none outline-none text-[var(--text)] text-base py-2 placeholder:text-[var(--text-secondary)]"
-          autoFocus={isLanding}
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="text-[var(--text-secondary)] hover:text-[var(--text)] px-2 text-xl"
-          >
-            &times;
+        <div className="flex items-center flex-1 pr-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => query && setShowDropdown(true)}
+            onKeyDown={handleKeyDown}
+            placeholder="Suche..."
+            className="flex-1 bg-transparent border-none outline-none text-[var(--text)] text-base py-2 placeholder:text-[var(--text-secondary)] min-w-0"
+            autoFocus={isLanding}
+          />
+          
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors"
+              title="Löschen"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          )}
+          
+          <div className="h-6 w-[1px] bg-[var(--border)] mx-1 opacity-50 hidden sm:block"></div>
+          
+          {/* Google-Style Action Icons (Placeholders for design) */}
+          <button type="button" className="p-2 text-[#4285f4] hover:bg-white/5 rounded-full transition-colors hidden sm:block" title="Sprachsuche">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
           </button>
-        )}
+          
+          <button type="button" className="p-2 text-[#4285f4] hover:bg-white/5 rounded-full transition-colors hidden sm:block" title="Suche per Bild">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+          </button>
+          
+          <button type="submit" className="p-2 text-[#4285f4] hover:bg-white/5 rounded-full transition-colors" title="Suche">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+        </div>
         {/* Autocomplete Dropdown */}
         {showDropdown && hasSuggestions && (
           <div className="absolute left-0 top-full z-50 w-full bg-[var(--surface)] border border-[var(--border)] rounded-b shadow-lg mt-1 max-h-64 overflow-y-auto animate-in fade-in">
