@@ -16,47 +16,58 @@ logger = logging.getLogger(__name__)
 logger.info("📦 Loading SentenceTransformer model...")
 model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
+import os
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+INPUT_FILE = os.path.join(DATA_DIR, "hs_aalen_extended_data.jsonl")
+OUTPUT_FILE = os.path.join(DATA_DIR, "hs_aalen_indexed_data.jsonl")
+
 # Laden der Daten
-logger.info("📂 Loading hs_aalen_extended_data.json...")
-with open('hs_aalen_extended_data.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
-
-pages = data['pages']
-logger.info(f"✓ Loaded {len(pages)} pages")
-
-# Generiere Embeddings für jede Seite
-logger.info("🧠 Generating embeddings...")
+logger.info(f"📂 Loading {INPUT_FILE}...")
 output_records = []
 
-for i, page in enumerate(pages, 1):
-    # Erstelle combined text für Embedding
-    full_text = f"{page['title']} {page['content']}"
-    
-    # Generiere Embedding
-    embedding = model.encode(full_text).tolist()
-    
-    # Erstelle Record
-    record = {
-        'url': page['url'],
-        'title': page['title'],
-        'content': page['content'][:1000],  # Limit content für Payload
-        'full_text': full_text,
-        'embedding': embedding,
-        'source': 'hs_aalen_website',
-        'type': 'webpage'
-    }
-    
-    output_records.append(record)
-    
-    if i % 50 == 0:
-        logger.info(f"  [{i}/{len(pages)}] Generated embeddings...")
+try:
+    with open(INPUT_FILE, 'r', encoding='utf-8') as f:
+        for i, line in enumerate(f, 1):
+            page = json.loads(line)
+            
+            # Erstelle combined text für Embedding
+            # Wir nehmen jetzt mehr Text mit (2500 chars) für besseres Ranking
+            title = page.get('title', '')
+            content = page.get('content', '')[:2500]
+            full_text = f"{title} {content}"
+            
+            # Generiere Embedding
+            embedding = model.encode(full_text).tolist()
+            
+            # Erstelle Record
+            record = {
+                'url': page['url'],
+                'title': title,
+                'content': content,
+                'full_text': full_text,
+                'embedding': embedding,
+                'source': 'hs_aalen_website',
+                'type': 'webpage'
+            }
+            
+            output_records.append(record)
+            
+            if i % 50 == 0:
+                logger.info(f"  Processed {i} pages...")
+except FileNotFoundError:
+    logger.error(f"❌ Input file {INPUT_FILE} not found!")
+    exit(1)
 
 # Speichere JSONL Format (1 record pro Zeile)
-logger.info("💾 Saving to hs_aalen_indexed_data.jsonl...")
-with open('hs_aalen_indexed_data.jsonl', 'w', encoding='utf-8') as f:
+logger.info(f"💾 Saving to {OUTPUT_FILE}...")
+with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
     for record in output_records:
         f.write(json.dumps(record, ensure_ascii=False) + '\n')
 
-logger.info(f"✓ Generated embeddings: {len(output_records)} records")
-logger.info(f"✓ Embedding dimension: {len(output_records[0]['embedding'])}")
+if output_records:
+    logger.info(f"✓ Generated embeddings: {len(output_records)} records")
+    logger.info(f"✓ Embedding dimension: {len(output_records[0]['embedding'])}")
+else:
+    logger.warning("⚠️  No records generated!")
+
 logger.info("✓ Done! Data ready for Qdrant indexing")

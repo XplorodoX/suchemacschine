@@ -33,8 +33,12 @@ SITEMAPS = [
 ]
 ROOT_SITEMAP_INDEX = "https://www.hs-aalen.de/sitemap.xml"
 
-OUTPUT_FILE = "/home/flo/suchemacschine/data.jsonl"
-REPORT_FILE = "/home/flo/suchemacschine/scrape_report.json"
+import os
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+OUTPUT_FILE = os.path.join(DATA_DIR, "hs_aalen_extended_data.jsonl")
+REPORT_FILE = os.path.join(DATA_DIR, "hs_aalen_extended_report.json")
 
 # FIX 1 — raise threshold so short-but-expandable pages also get JS rendering
 MIN_CONTENT_LENGTH = 350       # Still used as quality gate for saving records

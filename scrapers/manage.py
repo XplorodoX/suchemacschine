@@ -37,7 +37,7 @@ def main():
             ("index_starplan_to_qdrant.py", "Starplan Indexing")
         ],
         "webpage": [
-            ("hs_aalen_extended_scraper.py", "HS Aalen Website Scraping"),
+            ("scraper.py", "HS Aalen Website Scraping"),
             ("prepare_hs_aalen_extended_data.py", "HS Aalen Data Preparation"),
             ("index_hs_aalen_to_qdrant.py", "HS Aalen Indexing")
         ],
