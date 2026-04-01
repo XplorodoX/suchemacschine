@@ -376,9 +376,8 @@ def extract_sections(main_container):
     seen = set()
     for section in sections:
         heading, text = section.get("heading", ""), section.get("text", "")
-        min_len = 4 if len(heading) >= 4 else 20
         key = (heading, text)
-        if key in seen or len(text) < min_len: continue
+        if key in seen: continue
         seen.add(key)
         deduped_sections.append(section)
     return deduped_sections
@@ -535,7 +534,7 @@ async def main_async():
                 while results:
                     record = results.pop(0)
                     processed_count += 1
-                    if len(record.get("content", "")) >= MIN_CONTENT_LENGTH:
+                    if record.get("content"):
                         f.write(json.dumps(record, ensure_ascii=False) + "\n")
                         if processed_count % 10 == 0:
                             print(f"  Progress: {processed_count}/{total_count} saved")

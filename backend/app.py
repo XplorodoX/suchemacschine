@@ -124,7 +124,7 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.2,
             "starplan_timetable": 2.0,
             "asta_content": 0.1,
-            "hs_aalen_pdfs": 0.2,
+            "hs_aalen_pdfs": 0.1,   # NEU
         }
     if query_type == "asta":
         return {
@@ -132,15 +132,15 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.3,
             "starplan_timetable": 0.1,
             "asta_content": 2.0,
-            "hs_aalen_pdfs": 0.1,
+            "hs_aalen_pdfs": 0.3,   # NEU
         }
     # General query — balanced
     return {
         "hs_aalen_search": 1.0,
         "hs_aalen_website": 0.7,
         "starplan_timetable": 0.3,
-        "asta_content": 0.4,
-        "hs_aalen_pdfs": 1.2,
+        "asta_content": 0.6,        # War 0.4, erhöht für ASTA-Nischeninhalte
+        "hs_aalen_pdfs": 0.8,       # NEU – PDFs werden jetzt durchsucht
     }
 # Common university term synonyms for query expansion
 PROGRAM_SYNONYMS = {
@@ -215,7 +215,7 @@ def hybrid_search(
         "hs_aalen_website": weights.get("hs_aalen_website", 0.7),
         timetable_collection: weights.get("starplan_timetable", 0.3),
         "asta_content": weights.get("asta_content", 0.4),
-        "hs_aalen_pdfs": weights.get("hs_aalen_pdfs", 1.2),
+        "hs_aalen_pdfs": weights.get("hs_aalen_pdfs", 0.8),   # NEU
     }
 
     per_collection_limit = max(10, total_limit)
@@ -375,6 +375,7 @@ def _format_results(points, collection_name: str) -> list[dict]:
         )
         is_asta = source in ("asta_website", "asta")
         is_hs_website = source in ("hs_aalen_website", "hs_aalen")
+        is_pdf = payload_type == "pdf" or source == "hs_aalen_pdfs"  # NEU
 
         if is_timetable:
             parts = [
@@ -384,6 +385,10 @@ def _format_results(points, collection_name: str) -> list[dict]:
             ]
             text = " — ".join(pt for pt in parts if pt)
             result_type = "timetable"
+
+        elif is_pdf:                                                   # NEU – vor dem asta-check
+            text = payload.get("text", "")
+            result_type = "pdf"
 
         elif is_hs_website or is_asta:
             # FIX 3 — was: content[:200]. Now: up to 2000 chars so ranking has signal.

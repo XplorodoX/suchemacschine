@@ -270,7 +270,7 @@ def extract_sections(main_container):
     seen = set()
     for section in sections:
         key = (section["heading"], section["text"])
-        if key in seen or len(section["text"]) < 20:
+        if key in seen:
             continue
         seen.add(key)
         deduped_sections.append(section)
