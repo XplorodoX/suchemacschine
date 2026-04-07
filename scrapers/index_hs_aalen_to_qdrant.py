@@ -69,7 +69,11 @@ with open('hs_aalen_indexed_data.jsonl', 'r', encoding='utf-8') as f:
                 'title': title,
                 'content': content,
                 'source': record['source'],
-                'type': record.get('type', 'webpage')
+                'type': record.get('type', 'webpage'),
+                'pdf_sources': record.get('pdf_sources', []),
+                'pdf_count': record.get('pdf_count', 0),
+                'sections': record.get('sections', []),
+                'parent_url': record.get('parent_url'),
             }
         )
         points.append(point)
