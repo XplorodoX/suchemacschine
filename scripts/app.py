@@ -17,11 +17,20 @@ search_cache = {}
 MAX_CACHE_SIZE = 100
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
+from qdrant_client.models import Prefetch, FusionQuery, Fusion, SparseVector, NamedSparseVector
 from sentence_transformers import SentenceTransformer
+from sentence_transformers.cross_encoder import CrossEncoder
 
 # Configuration (Overridden by Environment Variables)
 COLLECTION_NAME = "hs_aalen_search"
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+# Upgraded to multilingual-e5-base (768-dim, much better for German/multilingual).
+# NOTE: If you change this, you MUST re-index all Qdrant collections!
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+# Cross-Encoder model for reranking (multilingual, fast ~12ms/pair)
+CROSS_ENCODER_MODEL = os.getenv("CROSS_ENCODER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
+# Sparse embedding model — only active when hs_aalen_search was indexed with USE_SPARSE_VECTORS=true
+USE_SPARSE_VECTORS = os.getenv("USE_SPARSE_VECTORS", "false").lower() == "true"
+SPARSE_MODEL_NAME = os.getenv("SPARSE_MODEL", "Qdrant/bm42-all-minilm-l6-v2-attentions")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
@@ -79,11 +88,31 @@ app = FastAPI(title="HS Aalen AI Search")
 print("Loading Embedding Model...")
 try:
     model = SentenceTransformer(MODEL_NAME)
-    print("✓ Embedding model loaded")
+    print(f"✓ Embedding model loaded: {MODEL_NAME}")
 except Exception as e:
     print(f"⚠️  Warning: Could not load embedding model: {e}")
     print("Server will continue (model will load on first request)")
     model = None
+
+sparse_encoder = None
+if USE_SPARSE_VECTORS:
+    try:
+        from fastembed import SparseTextEmbedding
+        print(f"Loading sparse embedding model ({SPARSE_MODEL_NAME})...")
+        sparse_encoder = SparseTextEmbedding(model_name=SPARSE_MODEL_NAME)
+        print(f"✓ Sparse model loaded: {SPARSE_MODEL_NAME}")
+    except ImportError:
+        print("⚠️  fastembed not installed — sparse search disabled. Run: pip install fastembed")
+    except Exception as e:
+        print(f"⚠️  Could not load sparse model: {e}")
+
+print("Loading Cross-Encoder Reranker...")
+try:
+    cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
+    print(f"✓ Cross-Encoder loaded: {CROSS_ENCODER_MODEL}")
+except Exception as e:
+    print(f"⚠️  Warning: Could not load cross-encoder: {e}. Falling back to LLM reranking.")
+    cross_encoder = None
 
 try:
     client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
@@ -225,6 +254,46 @@ def expand_program_terms(query: str) -> str:
     return f"{query} {' '.join(deduped)}"
 
 
+def encode_query(query: str) -> list:
+    """Encode a query string into a vector, applying e5-style prefix if needed."""
+    if model is None:
+        return []
+    # intfloat/multilingual-e5-* models require "query: " prefix for retrieval
+    if "e5" in MODEL_NAME.lower():
+        return model.encode(f"query: {query}").tolist()
+    return model.encode(query).tolist()
+
+
+def cross_encoder_rerank(query: str, results: list, top_k: int = 10) -> list:
+    """
+    Cross-Encoder Reranking: scores each (query, document) pair jointly with
+    full attention — far more accurate than bi-encoder cosine similarity alone.
+    Applied only to the top-30 candidates to keep latency low (~12ms/pair).
+    """
+    if cross_encoder is None or not results:
+        return results
+
+    # Only rerank top-30 to stay within latency budget
+    candidates = results[:30]
+    rest = results[30:]
+
+    pairs = [
+        (query, f"{r.get('title', '')} {r.get('text', '')[:500]}")
+        for r in candidates
+    ]
+
+    try:
+        scores = cross_encoder.predict(pairs)
+        for r, score in zip(candidates, scores):
+            r["cross_encoder_score"] = float(score)
+
+        reranked = sorted(candidates, key=lambda x: x.get("cross_encoder_score", 0), reverse=True)
+        return reranked[:top_k] + reranked[top_k:] + rest
+    except Exception as e:
+        print(f"Cross-encoder reranking failed: {e}")
+        return results
+
+
 def normalize_text(text: str) -> str:
     text = (text or "").lower()
     text = unicodedata.normalize("NFKC", text)
@@ -282,29 +351,61 @@ def lexical_relevance(query: str, text: str, url: str) -> float:
     return max(0.0, min(1.0, score))
 
 
+def _sparse_vector_for(text: str):
+    """Return (indices, values) for the given text using the sparse encoder, or None."""
+    if sparse_encoder is None:
+        return None
+    try:
+        result = next(sparse_encoder.embed([text]))
+        return SparseVector(indices=result.indices.tolist(), values=result.values.tolist())
+    except Exception as e:
+        print(f"Sparse encoding failed: {e}")
+        return None
+
+
+def _query_collection_hybrid(collection_name: str, dense_vector: list, query: str, limit: int) -> list:
+    """
+    Query a single collection using Qdrant's native RRF hybrid search when sparse
+    vectors are available, otherwise fall back to dense-only search.
+    """
+    if sparse_encoder is not None:
+        sparse_vec = _sparse_vector_for(query)
+        if sparse_vec is not None:
+            # Qdrant RRF fusion: retrieves top candidates from dense + sparse, merges with RRF
+            return client.query_points(
+                collection_name=collection_name,
+                prefetch=[
+                    Prefetch(query=dense_vector, using="dense", limit=limit * 2),
+                    Prefetch(query=NamedSparseVector(name="sparse", vector=sparse_vec), using="sparse", limit=limit * 2),
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
+                limit=limit,
+            ).points
+
+    # Dense-only fallback (existing behaviour)
+    return client.query_points(
+        collection_name=collection_name,
+        query=dense_vector,
+        limit=limit,
+    ).points
+
+
 def hybrid_search(query: str, expanded_query: str, total_limit: int = 20, semester: str = "SoSe26"):
     """Hybrid search: search both main content and timetable collections."""
-    # Encode both queries
-    original_vector = model.encode(query).tolist()
-    expanded_vector = model.encode(expanded_query).tolist()
+    # Encode both queries (applies e5 prefix if model requires it)
+    original_vector = encode_query(query)
+    expanded_vector = encode_query(expanded_query)
 
     all_results = []
-    
+
     # Search main collection (HTML content)
     try:
-        # Search with original query
-        original_results = client.query_points(
-            collection_name=COLLECTION_NAME,
-            query=original_vector,
-            limit=int(total_limit * 0.5),  # 50% from main collection
-        ).points
-
-        # Search with expanded query
-        expanded_results = client.query_points(
-            collection_name=COLLECTION_NAME,
-            query=expanded_vector,
-            limit=int(total_limit * 0.5),
-        ).points
+        original_results = _query_collection_hybrid(
+            COLLECTION_NAME, original_vector, query, int(total_limit * 0.5)
+        )
+        expanded_results = _query_collection_hybrid(
+            COLLECTION_NAME, expanded_vector, expanded_query, int(total_limit * 0.5)
+        )
 
         # Merge main collection results
         seen_main = {}
@@ -326,50 +427,38 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20, semest
     
     # Search HS Aalen website collection - 25%
     try:
-        hs_aalen_results = client.query_points(
-            collection_name="hs_aalen_website",
-            query=original_vector,
-            limit=int(total_limit * 0.25),  # 25% from HS Aalen website
-        ).points
+        hs_aalen_results = _query_collection_hybrid(
+            "hs_aalen_website", original_vector, query, int(total_limit * 0.25)
+        )
         print(f"DEBUG: HS Aalen website collection returned {len(hs_aalen_results)} results")
         all_results.extend(hs_aalen_results)
     except Exception as e:
         print(f"WARNING: HS Aalen website collection not available: {e}")
-    
+
     # Search semester-specific timetable collection if available
-    # Priority: semester-specific collection > fallback to main timetable collection
     semester_collection = f"starplan_{semester}"
-    
     try:
-        # Try semester-specific collection first
-        timetable_results = client.query_points(
-            collection_name=semester_collection,
-            query=original_vector,
-            limit=int(total_limit * 0.15),  # 15% from timetable
-        ).points
+        timetable_results = _query_collection_hybrid(
+            semester_collection, original_vector, query, int(total_limit * 0.15)
+        )
         print(f"DEBUG: Timetable collection ({semester_collection}) returned {len(timetable_results)} results")
         all_results.extend(timetable_results)
     except Exception as e:
-        # Fallback to old main timetable if semester-specific not available
         try:
             print(f"Note: {semester_collection} not available, falling back to starplan_timetable")
-            timetable_results = client.query_points(
-                collection_name="starplan_timetable",
-                query=original_vector,
-                limit=int(total_limit * 0.15),
-            ).points
+            timetable_results = _query_collection_hybrid(
+                "starplan_timetable", original_vector, query, int(total_limit * 0.15)
+            )
             print(f"DEBUG: Main timetable collection returned {len(timetable_results)} results")
             all_results.extend(timetable_results)
         except Exception as e2:
             print(f"WARNING: No timetable collection available: {e2}")
-    
+
     # Search ASTA collection - 10%
     try:
-        asta_results = client.query_points(
-            collection_name="asta_content",
-            query=original_vector,
-            limit=int(total_limit * 0.1),  # 10% from ASTA
-        ).points
+        asta_results = _query_collection_hybrid(
+            "asta_content", original_vector, query, int(total_limit * 0.1)
+        )
         print(f"DEBUG: ASTA collection returned {len(asta_results)} results")
         all_results.extend(asta_results)
     except Exception as e:
@@ -440,8 +529,16 @@ def boost_and_rank(
     results = [r for r in results if r["score"] >= RELEVANCE_MIN_SCORE]
     results = sorted(results, key=lambda x: x["score"], reverse=True)
 
-    # 2. LLM Re-ranking (Only if requested)
+    # 2. Cross-Encoder Reranking (primary reranker — fast, no LLM needed)
+    # Runs on top-30, returns top-10 reordered by cross-encoder score.
+    if cross_encoder is not None and results:
+        results = cross_encoder_rerank(query, results, top_k=10)
+
+    # 3. LLM Re-ranking (Only if requested AND cross-encoder not available)
     if not include_rerank:
+        return results
+    if cross_encoder is not None:
+        # Cross-encoder already reranked — skip expensive LLM reranker
         return results
 
     top_n = 10
