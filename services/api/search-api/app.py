@@ -3,162 +3,53 @@ import requests
 import json
 import os
 import logging
-import numpy as np
-import unicodedata
 from typing import Optional
 from datetime import datetime
+
+from fastapi import FastAPI, Query, HTTPException, Header
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+try:
+    from framework.search.engine import SearchEngine
+except ImportError:
+    import sys
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+    from framework.search.engine import SearchEngine
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
 )
-score_log = logging.getLogger("scores")
-from fastapi import FastAPI, Query, HTTPException, Header
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
-# --- Global Cache ---
-# Simple in-memory cache for search results
-# format: {(query, model, rerank, expansion): (ranked_results, summary, expanded_query)}
-search_cache = {}
-MAX_CACHE_SIZE = 100
-from pydantic import BaseModel
-from qdrant_client import QdrantClient
-
-# Configuration (Overridden by Environment Variables)
-COLLECTION_NAME = "hs_aalen_search"
-OLLAMA_URL_BASE = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_URL = f"{OLLAMA_URL_BASE}/api/generate"
-OLLAMA_EMBEDDINGS_URL = f"{OLLAMA_URL_BASE}/api/embeddings"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
-OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-OPENAI_URL = os.getenv("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_FALLBACK_MODELS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1"]
-RELEVANCE_MIN_SCORE = 0.34
 
-# Cross-Encoder model for re-ranking.
-# mmarco-mMiniLMv2 is multilingual and handles German well.
-# Override via env: CROSS_ENCODER_MODEL=none to disable.
-CROSS_ENCODER_MODEL = os.getenv(
-    "CROSS_ENCODER_MODEL",
-    "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
-)
-# How many candidates to feed into the cross-encoder (latency vs. quality trade-off)
-CROSS_ENCODER_TOP_K = int(os.getenv("CROSS_ENCODER_TOP_K", 20))
+# The new global engine handles caching, LLM calls, embeddings, hybrid search, etc.
+# We pass the full path to the config file. Since in Docker it's copied to /app/configs
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "configs", "hs-aalen.yaml")
+if not os.path.exists(CONFIG_PATH):
+    CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "configs", "hs-aalen.yaml")
 
-GERMAN_STOPWORDS = {
-    "der", "die", "das", "ein", "eine", "einer", "einem", "einen", "und", "oder", "aber", "mit", "ohne",
-    "auf", "in", "im", "am", "an", "zu", "zum", "zur", "von", "für", "ist", "sind", "war", "wie", "was",
-    "wer", "wo", "wann", "warum", "welche", "welcher", "welches", "ich", "du", "er", "sie", "es", "wir",
-    "ihr", "nicht", "kein", "keine", "mehr", "auch", "den", "dem", "des", "bei", "über", "unter", "nach",
-}
-
-PROGRAM_QUERY_SYNONYMS = {
-    "informatik": ["ai", "csc", "computer science", "kuenstliche intelligenz", "ki"],
-    "computer science": ["informatik", "csc", "ai", "ki"],
-    "ki": ["kuenstliche intelligenz", "ai", "informatik"],
-    "kuenstliche intelligenz": ["ki", "ai", "informatik"],
-    "ai": ["ki", "kuenstliche intelligenz", "informatik", "csc"],
-    "csc": ["informatik", "computer science", "ai", "ki"],
-    "elektrotechnik": ["et", "ee", "electronics", "elektronik"],
-    "et": ["elektrotechnik", "electronics", "ee"],
-    "maschinenbau": ["mb", "mechanical engineering"],
-    "mb": ["maschinenbau", "mechanical engineering"],
-    "wirtschaftsinformatik": ["winf", "business informatics"],
-    "winf": ["wirtschaftsinformatik", "business informatics"],
-}
+print("Initializing Framework SearchEngine...")
+global_engine = SearchEngine(CONFIG_PATH)
+print("✓ SearchEngine initialized")
 
 app = FastAPI(title="HS Aalen AI Search")
 
-# Initialize clients once
-print("Connecting to Qdrant...")
-try:
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-    print("✓ Qdrant client connected")
-except Exception as e:
-    print(f"⚠️  Warning: Could not connect to Qdrant: {e}")
-    client = None
-
-# Load Cross-Encoder for re-ranking (no GPU required, runs on CPU)
-_cross_encoder = None
-if CROSS_ENCODER_MODEL.lower() != "none":
-    try:
-        from sentence_transformers.cross_encoder import CrossEncoder
-        print(f"Loading Cross-Encoder: {CROSS_ENCODER_MODEL} ...")
-        _cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
-        print(f"✓ Cross-Encoder loaded: {CROSS_ENCODER_MODEL}")
-    except ImportError:
-        print("⚠️  sentence-transformers not installed — Cross-Encoder disabled.")
-        print("   Install with: pip install sentence-transformers")
-    except Exception as e:
-        print(f"⚠️  Could not load Cross-Encoder '{CROSS_ENCODER_MODEL}': {e}")
-
-print("✓ Ready to use Ollama for embeddings and LLM")
-
-# Serve static files
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(STATIC_DIR):
     os.makedirs(STATIC_DIR)
 
-
-def call_llm(prompt: str, model_name: str, provider: str = "ollama", openai_api_key: str = "", timeout: int = 40) -> str:
-    """Unified LLM call for Ollama and OpenAI."""
-    if provider == "openai":
-        api_key = (openai_api_key or os.getenv("OPENAI_API_KEY", "")).strip()
-        if not api_key:
-            return ""
-
-        payload = {
-            "model": model_name or OPENAI_MODEL,
-            "messages": [
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.2,
-        }
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-
-        response = requests.post(OPENAI_URL, headers=headers, json=payload, timeout=timeout)
-        response.raise_for_status()
-        data = response.json()
-        return (data.get("choices", [{}])[0].get("message", {}).get("content", "") or "").strip()
-
-    response = requests.post(
-        OLLAMA_URL,
-        json={"model": model_name or OLLAMA_MODEL, "prompt": prompt, "stream": False},
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    return (response.json().get("response", "") or "").strip()
-
-
-def get_ollama_embeddings(text: str) -> list[float]:
-    """Get embeddings from Ollama via local API."""
-    try:
-        response = requests.post(
-            OLLAMA_EMBEDDINGS_URL,
-            json={"model": OLLAMA_EMBEDDING_MODEL, "prompt": text},
-            timeout=30,
-        )
-        response.raise_for_status()
-        return response.json().get("embedding", [])
-    except Exception as e:
-        print(f"⚠️  Warning: Could not get embeddings from Ollama: {e}")
-        # Return zero vector as fallback
-        return [0.0] * 384  # Default embedding dimension for nomic-embed-text
-
-
 def is_ollama_available() -> bool:
     try:
-        response = requests.get(f"{OLLAMA_URL_BASE}/api/tags", timeout=4)
+        url = global_engine.ollama_url.replace("/api/generate", "/api/tags")
+        response = requests.get(url, timeout=4)
         response.raise_for_status()
         return True
     except Exception:
         return False
-
 
 def is_openai_available(openai_api_key: str = "") -> bool:
     api_key = (openai_api_key or os.getenv("OPENAI_API_KEY", "")).strip()
@@ -175,492 +66,15 @@ def is_openai_available(openai_api_key: str = "") -> bool:
     except Exception:
         return False
 
-
 def resolve_provider(provider: str, openai_api_key: str = "") -> str:
     requested = (provider or "auto").lower().strip()
     if requested in {"ollama", "openai", "none"}:
         return requested
-
-    # Auto mode: prefer local Ollama first, then OpenAI (if key is available), otherwise no LLM.
     if is_ollama_available():
         return "ollama"
     if is_openai_available(openai_api_key):
         return "openai"
     return "none"
-
-
-def expand_query(query: str, model_name: str, provider: str = "ollama", openai_api_key: str = "") -> str:
-    """Focused query expansion: produces a short, precise search sentence."""
-    prompt = (
-        "Du bist ein Suchassistent für die Webseite der Hochschule Aalen. "
-        "Formuliere die folgende Suchanfrage als einen kurzen, präzisen "
-        "Suchsatz (maximal 2 Sätze), der die Absicht des Nutzers klar "
-        "beschreibt. Füge KEINE losen Keywords hinzu. "
-        "Antworte NUR mit dem Suchsatz.\n\n"
-        f"Suchanfrage: {query}"
-    )
-    try:
-        expanded = call_llm(
-            prompt,
-            model_name=model_name,
-            provider=provider,
-            openai_api_key=openai_api_key,
-            timeout=30,
-        )
-        expanded = re.sub(r"<think>.*?</think>", "", expanded, flags=re.DOTALL).strip()
-        # Remove quotes if the model wraps it
-        expanded = expanded.strip('"').strip("'").strip("„").strip("“")
-        return expanded if expanded else query
-    except Exception:
-        return query
-
-
-def expand_program_terms(query: str) -> str:
-    """Expand common study program aliases (e.g. Informatik <-> AI/CSC) without LLM."""
-    normalized = normalize_text(query)
-    expanded_terms = []
-
-    for key, synonyms in PROGRAM_QUERY_SYNONYMS.items():
-        if key in normalized:
-            expanded_terms.extend(synonyms)
-
-    if not expanded_terms:
-        return query
-
-    # Keep order stable while removing duplicates and existing query terms.
-    existing_tokens = set(tokenize(query))
-    deduped = []
-    for term in expanded_terms:
-        term_norm = normalize_text(term)
-        if term_norm and term_norm not in deduped and term_norm not in existing_tokens:
-            deduped.append(term_norm)
-
-    if not deduped:
-        return query
-
-    return f"{query} {' '.join(deduped)}"
-
-
-def normalize_text(text: str) -> str:
-    text = (text or "").lower()
-    text = unicodedata.normalize("NFKC", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
-
-
-def tokenize(text: str) -> list[str]:
-    normalized = normalize_text(text)
-    tokens = re.findall(r"[a-zA-Z0-9äöüÄÖÜß]{2,}", normalized)
-    return [t for t in tokens if t not in GERMAN_STOPWORDS]
-
-
-def extract_quoted_phrases(query: str) -> list[str]:
-    phrases = re.findall(r'"([^"]+)"', query)
-    return [normalize_text(p) for p in phrases if p.strip()]
-
-
-def strict_match_passes(query: str, text: str, url: str) -> bool:
-    haystack = f"{normalize_text(text)} {normalize_text(url)}"
-    phrases = extract_quoted_phrases(query)
-
-    # If user provides quoted phrases, enforce exact phrase containment.
-    if phrases and not all(p in haystack for p in phrases):
-        return False
-
-    # Enforce at least one core token match for precision.
-    core_tokens = [t for t in tokenize(query) if len(t) >= 4]
-    if not core_tokens:
-        return True
-    return any(tok in haystack for tok in core_tokens)
-
-
-def lexical_relevance(query: str, text: str, url: str) -> float:
-    q_tokens = tokenize(query)
-    if not q_tokens:
-        return 0.0
-
-    haystack = f"{normalize_text(text)} {normalize_text(url)}"
-    matched = {tok for tok in q_tokens if tok in haystack}
-    coverage = len(matched) / len(q_tokens)
-
-    phrase_bonus = 0.0
-    normalized_query = normalize_text(query)
-    if len(normalized_query) >= 6 and normalized_query in haystack:
-        phrase_bonus = 0.2
-
-    long_token_bonus = 0.0
-    long_tokens = [t for t in q_tokens if len(t) >= 6]
-    if long_tokens:
-        long_matches = sum(1 for t in long_tokens if t in haystack)
-        long_token_bonus = 0.1 * (long_matches / len(long_tokens))
-
-    score = (0.7 * coverage) + phrase_bonus + long_token_bonus
-    return max(0.0, min(1.0, score))
-
-
-def hybrid_search(query: str, expanded_query: str, total_limit: int = 20, semester: str = "SoSe26"):
-    """Hybrid search: search both main content and timetable collections."""
-    # Encode both queries using Ollama
-    original_vector = get_ollama_embeddings(query)
-    expanded_vector = get_ollama_embeddings(expanded_query)
-    
-    # Check if embeddings are valid (not just fallback zeros)
-    has_valid_embeddings = original_vector and any(v != 0.0 for v in original_vector)
-    
-    if not has_valid_embeddings:
-        print(f"⚠️  Warning: No valid embeddings, using text-only search")
-
-    all_results = []
-    
-    # Search main collection (HTML content)
-    try:
-        if has_valid_embeddings:
-            # Vector search
-            original_results = client.query_points(
-                collection_name=COLLECTION_NAME,
-                query=original_vector,
-                limit=int(total_limit * 0.5),
-            ).points
-            expanded_results = client.query_points(
-                collection_name=COLLECTION_NAME,
-                query=expanded_vector,
-                limit=int(total_limit * 0.5),
-            ).points
-        else:
-            # Fallback to all points if vector search fails
-            original_results = client.get_points(
-                collection_name=COLLECTION_NAME,
-                ids=list(range(0, 100)),
-                with_vectors=True,
-                with_payload=True,
-            ).points
-            expanded_results = []
-
-        # Merge main collection results
-        seen_main = {}
-        for res in original_results:
-            key = (res.payload.get("url", ""), res.payload.get("text", "")[:100])
-            if key not in seen_main or res.score > seen_main[key].score:
-                seen_main[key] = res
-
-        for res in expanded_results:
-            key = (res.payload.get("url", ""), res.payload.get("text", "")[:100])
-            # Slight penalty for expanded-only results
-            if key not in seen_main or res.score * 0.95 > seen_main[key].score:
-                seen_main[key] = res
-
-        all_results.extend(seen_main.values())
-        print(f"DEBUG: Main collection returned {len(seen_main)} results")
-    except Exception as e:
-        print(f"Error searching main collection: {e}")
-    
-    # Search HS Aalen website collection - 25%
-    try:
-        if has_valid_embeddings:
-            hs_aalen_results = client.query_points(
-                collection_name="hs_aalen_website",
-                query=original_vector,
-                limit=int(total_limit * 0.25),
-            ).points
-        else:
-            hs_aalen_results = []
-        print(f"DEBUG: HS Aalen website collection returned {len(hs_aalen_results)} results")
-        all_results.extend(hs_aalen_results)
-    except Exception as e:
-        print(f"WARNING: HS Aalen website collection not available: {e}")
-    
-    # Search semester-specific timetable collection if available
-    # Priority: semester-specific collection > fallback to main timetable collection
-    semester_collection = f"starplan_{semester}"
-    
-    try:
-        # Try semester-specific collection first
-        timetable_results = client.query_points(
-            collection_name=semester_collection,
-            query=original_vector,
-            limit=int(total_limit * 0.15),  # 15% from timetable
-        ).points
-        print(f"DEBUG: Timetable collection ({semester_collection}) returned {len(timetable_results)} results")
-        all_results.extend(timetable_results)
-    except Exception as e:
-        # Fallback to old main timetable if semester-specific not available
-        try:
-            print(f"Note: {semester_collection} not available, falling back to starplan_timetable")
-            timetable_results = client.query_points(
-                collection_name="starplan_timetable",
-                query=original_vector,
-                limit=int(total_limit * 0.15),
-            ).points
-            print(f"DEBUG: Main timetable collection returned {len(timetable_results)} results")
-            all_results.extend(timetable_results)
-        except Exception as e2:
-            print(f"WARNING: No timetable collection available: {e2}")
-    
-    # Search ASTA collection - 10%
-    try:
-        asta_results = client.query_points(
-            collection_name="asta_content",
-            query=original_vector,
-            limit=int(total_limit * 0.1),  # 10% from ASTA
-        ).points
-        print(f"DEBUG: ASTA collection returned {len(asta_results)} results")
-        all_results.extend(asta_results)
-    except Exception as e:
-        print(f"WARNING: ASTA collection not available: {e}")
-    
-    # Final sort by score descending and limit
-    merged = sorted(all_results, key=lambda x: x.score, reverse=True)
-    print(f"DEBUG: Total merged results: {len(merged)} (limit: {total_limit})")
-    return merged[:total_limit]
-
-
-def cross_encoder_rerank(query: str, results: list, top_k: int = CROSS_ENCODER_TOP_K) -> list:
-    """
-    Re-rank *results* using the globally loaded Cross-Encoder model.
-
-    The Cross-Encoder scores each (query, document) pair **jointly** — it reads
-    both texts together in a single forward pass, giving it far better ability
-    to judge relevance than two independent bi-encoder embeddings.
-
-    Only the top ``top_k`` candidates are re-scored to keep latency low
-    (typically <100 ms on CPU for top-20 with a MiniLM model).
-    The rest of the list is appended unchanged after the re-ranked candidates.
-
-    Args:
-        query:   the user's original search query
-        results: list of result dicts (must have a "text" and optionally "title" key)
-        top_k:   number of candidates to pass through the cross-encoder
-
-    Returns:
-        Re-ranked list (length unchanged).
-    """
-    if _cross_encoder is None or not results:
-        return results
-
-    candidates = results[:top_k]
-    rest = results[top_k:]
-
-    # Build (query, passage) input pairs for the cross-encoder.
-    # Prepend title when available to give the model more signal.
-    pairs = []
-    for r in candidates:
-        title = (r.get("title") or "").strip()
-        text = (r.get("text") or "")[:500]
-        passage = f"{title}: {text}" if title else text
-        pairs.append((query, passage))
-
-    try:
-        scores = _cross_encoder.predict(pairs)
-        for r, ce_score in zip(candidates, scores):
-            r["cross_encoder_score"] = float(ce_score)
-
-        reranked = sorted(
-            candidates,
-            key=lambda x: x.get("cross_encoder_score", 0.0),
-            reverse=True,
-        )
-        score_log.info(
-            "Cross-Encoder re-ranked top-%d candidates for query %r",
-            len(candidates), query,
-        )
-        return reranked + rest
-    except Exception as e:
-        logging.warning("Cross-encoder prediction failed: %s", e)
-        return results
-
-
-def boost_and_rank(
-    query: str,
-    results: list,
-    model_name: str,
-    include_rerank: bool,
-    provider: str = "ollama",
-    openai_api_key: str = "",
-    strict_match: bool = True,
-) -> list:
-    """Combine vector score with lexical relevance and optional re-ranking.
-
-    Re-ranking priority:
-      1. Cross-Encoder  — always runs when available (no LLM required, fast)
-      2. LLM re-ranking — fallback when no Cross-Encoder is loaded and LLM is enabled
-    """
-    if not results:
-        return results
-
-    # 1. Normalize vector scores for stable fusion with lexical relevance.
-    vector_scores = [res.get("score", 0.0) for res in results]
-    min_score = min(vector_scores)
-    max_score = max(vector_scores)
-    denom = (max_score - min_score) if max_score > min_score else 1.0
-
-    for res in results:
-        raw_vector = res.get("score", 0.0)
-        vector_norm = (raw_vector - min_score) / denom
-        lexical = lexical_relevance(query, res.get("text", ""), res.get("url", ""))
-
-        # Weighted rank fusion: semantics dominate, lexical relevance stabilizes precision.
-        res["score"] = (0.72 * vector_norm) + (0.28 * lexical)
-        res["vector_score"] = float(raw_vector)
-        res["lexical_score"] = float(lexical)
-
-    if strict_match:
-        # Don't apply strict matching for timetable, website, and ASTA results
-        results = [
-            r
-            for r in results
-            if r.get("type") in ("timetable", "website", "asta") or strict_match_passes(query, r.get("text", ""), r.get("url", ""))
-        ]
-
-    # Filter weak matches so summary generation does not hallucinate from irrelevant sources.
-    results = [r for r in results if r["score"] >= RELEVANCE_MIN_SCORE]
-    results = sorted(results, key=lambda x: x["score"], reverse=True)
-
-    # Score logging — one line per result for easy grep/analysis
-    score_log.info("QUERY: %r  |  %d results after filter", query, len(results))
-    for i, r in enumerate(results[:10]):
-        score_log.info(
-            "  #%d  final=%.3f  vec=%.3f  lex=%.3f  type=%-10s  url=%s",
-            i + 1,
-            r.get("score", 0.0),
-            r.get("vector_score", 0.0),
-            r.get("lexical_score", 0.0),
-            r.get("type", "?"),
-            r.get("url", "")[:80],
-        )
-
-    # 2. Cross-Encoder re-ranking — runs whenever the model is loaded (no LLM needed)
-    if _cross_encoder is not None:
-        results = cross_encoder_rerank(query, results)
-        return results
-
-    # 3. LLM Re-ranking — only when no Cross-Encoder is available and LLM is enabled
-    if not include_rerank:
-        return results
-
-    top_n = 10
-    subset = results[:top_n]
-
-    snippets = ""
-    for i, res in enumerate(subset):
-        snippet = res.get("text", "")[:200].replace("\n", " ").strip()
-        snippets += f"ID {i}: {snippet}\n"
-
-    prompt = (
-        f"Anfrage: \"{query}\"\n\n"
-        "Bewerte die Relevanz der folgenden Ergebnisse für die Anfrage. "
-        "Antworte ausschließlich mit einer JSON-Liste von IDs in der besten Reihenfolge, "
-        "z. B. [2,0,5,1]. Keine weiteren Wörter.\n\n"
-        f"Ergebnisse:\n{snippets}"
-    )
-    try:
-        raw = call_llm(
-            prompt,
-            model_name=model_name,
-            provider=provider,
-            openai_api_key=openai_api_key,
-            timeout=40,
-        )
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-
-        # Parse indices
-        new_order = []
-        for match in re.finditer(r"\d+", raw):
-            idx = int(match.group())
-            if 0 <= idx < len(subset) and idx not in new_order:
-                new_order.append(idx)
-
-        if new_order:
-            reranked = [subset[i] for i in new_order]
-            remaining_subset = [r for i, r in enumerate(subset) if i not in new_order]
-            return reranked + remaining_subset + results[top_n:]
-
-        return results
-    except Exception:
-        return results
-
-
-def dedup_by_url(results: list) -> list:
-    """Keep only the highest-scoring chunk per URL.
-
-    Timetable entries share the same iCal URL but represent distinct events
-    (different day/time/lecture), so they are deduplicated by (url, text[:80])
-    instead of URL alone.
-    """
-    seen: dict[str, float] = {}   # url -> best score so far
-    kept: list = []
-
-    for r in results:  # already sorted by score descending
-        url = r.get("url", "")
-        score = r.get("score", 0.0)
-
-        if r.get("type") == "timetable":
-            # Each timetable event is unique — deduplicate on url+event text
-            key = url + "|" + r.get("text", "")[:80]
-        else:
-            key = url
-
-        if key not in seen:
-            seen[key] = score
-            kept.append(r)
-        # else: same URL already represented by a higher-scored chunk — skip
-
-    return kept
-
-
-def has_strong_evidence(results: list) -> bool:
-    """Check if results are good enough for summary generation.
-    
-    Lowered thresholds to allow more summaries:
-    - If we have at least one result with score >= 0.45, consider it evidence
-    - OR if average of top3 results >= 0.40, that's also enough
-    """
-    if not results:
-        return False
-
-    top1 = results[0].get("score", 0.0)
-    top3 = results[:3]
-    mean_top3 = sum(r.get("score", 0.0) for r in top3) / len(top3)
-    
-    # More lenient: either top1 >= 0.45 OR mean_top3 >= 0.40
-    return (top1 >= 0.45) or (mean_top3 >= 0.40)
-
-
-def generate_summary(query: str, results: list, model_name: str, provider: str = "ollama", openai_api_key: str = "") -> str:
-    """Generate an AI summary using the specified model."""
-    if not has_strong_evidence(results):
-        return ""
-
-    top_results = results[:5]
-    snippets = ""
-    for i, res in enumerate(top_results, 1):
-        text = res.get("text", "")[:350]
-        url = res.get("url", "")
-        snippets += f"[{i}] QUELLE: {url}\nTEXT: {text}\n\n"
-
-    prompt = (
-        "Du bist der HS Aalen Such-Assistent. "
-        f"Beantworte die Anfrage \"{query}\" basierend auf diesen Quellen:\n\n{snippets}\n"
-        "Regeln:\n"
-        "1. Nutze [1], [2] etc. für Zitate.\n"
-        "2. Sei präzise und nenne konkrete Fakten.\n"
-        "3. Erfinde keine Informationen, die nicht in den Quellen stehen.\n"
-        "4. Wenn die Quellen nicht ausreichen, antworte nur: KEINE_EVIDENZ"
-    )
-    try:
-        summary = call_llm(
-            prompt,
-            model_name=model_name,
-            provider=provider,
-            openai_api_key=openai_api_key,
-            timeout=60,
-        )
-        summary = re.sub(r"<think>.*?</think>", "", summary, flags=re.DOTALL).strip()
-        if "KEINE_EVIDENZ" in summary.upper():
-            return ""
-        return summary if summary else ""
-    except Exception:
-        return ""
-
 
 @app.get("/api/models")
 async def list_models(
@@ -668,7 +82,6 @@ async def list_models(
     openai_api_key: str = Query(""),
     x_openai_key: Optional[str] = Header(default=None, alias="X-OpenAI-Key"),
 ):
-    """List available models for selected provider."""
     active_openai_key = (openai_api_key or x_openai_key or "").strip()
     requested_provider = (provider or "auto").lower().strip()
     resolved_provider = resolve_provider(requested_provider, active_openai_key)
@@ -715,9 +128,8 @@ async def list_models(
             }
 
     try:
-        # Use the base URL for Ollama tags
-        base_ollama = OLLAMA_URL.replace("/api/generate", "/api/tags")
-        response = requests.get(base_ollama, timeout=10)
+        url = global_engine.ollama_url.replace("/api/generate", "/api/tags")
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         models_data = response.json().get("models", [])
         return {
@@ -727,14 +139,12 @@ async def list_models(
             "using_fallback": False,
         }
     except Exception as e:
-        print(f"Error fetching models: {e}")
         return {
-            "models": [OLLAMA_MODEL],
+            "models": [global_engine.ollama_model],
             "provider": "ollama",
             "requested_provider": requested_provider,
             "using_fallback": True,
         }
-
 
 @app.get("/api/search")
 async def api_search(
@@ -751,136 +161,35 @@ async def api_search(
     semester: str = Query("SoSe26"),
     x_openai_key: Optional[str] = Header(default=None, alias="X-OpenAI-Key"),
 ):
-    """Search endpoint with caching to improve performance."""
     active_openai_key = (openai_api_key or x_openai_key or "").strip()
     requested_provider = (provider or "auto").lower().strip()
     resolved_provider = resolve_provider(requested_provider, active_openai_key)
 
     llm_enabled = resolved_provider in {"ollama", "openai"}
-    include_llm_expansion = include_expansion and llm_enabled
-    include_rerank = include_rerank and llm_enabled
-    include_summary = include_summary and llm_enabled
 
     if resolved_provider == "openai":
-        model_for_provider = model_name or OPENAI_MODEL
+        model_for_provider = model_name or global_engine.openai_model
     elif resolved_provider == "ollama":
-        model_for_provider = model_name or OLLAMA_MODEL
+        model_for_provider = model_name or global_engine.ollama_model
     else:
         model_for_provider = ""
 
-    cache_key = (
-        q,
-        requested_provider,
-        resolved_provider,
-        model_for_provider,
-        include_rerank,
-        include_expansion,
-        strict_match,
-        bool(active_openai_key),
-        semester,
+    # Call framework SearchEngine
+    # It internally handles caching, query expansion, deduplication, and LLM rating
+    ranked_results, summary, semantic_query = global_engine.search(
+        query=q,
+        total_limit=100,  # Grab enough for pagination
+        include_expansion=include_expansion and llm_enabled,
+        include_rerank=include_rerank and llm_enabled,
+        include_summary=include_summary and llm_enabled and (page == 1),
+        strict_match=strict_match,
+        provider=resolved_provider,
+        model_name=model_for_provider,
+        openai_api_key=active_openai_key,
+        semester=semester,
     )
 
-    # 1. Check Cache
-    if cache_key in search_cache:
-        ranked_results, summary, semantic_query = search_cache[cache_key]
-        print(f"DEBUG: Cache hit for '{q}'")
-    else:
-        print(f"DEBUG: Cache miss for '{q}'. Performing search...")
-        # A. Expansion
-        semantic_query = (
-            expand_query(q, model_for_provider, provider=resolved_provider, openai_api_key=active_openai_key)
-            if include_llm_expansion
-            else q
-        )
-        if include_expansion:
-            semantic_query = expand_program_terms(semantic_query)
-
-        # B. Vector Search
-        raw_points = hybrid_search(q, semantic_query, total_limit=50, semester=semester)
-
-        # C. Formatting
-        results = []
-        for p in raw_points:
-            # Handle HTML content, HS Aalen Website, ASTA, and Timetable data
-            source = p.payload.get('source', '')
-            payload_type = p.payload.get('type', '')
-            is_timetable = source == 'starplan_timetable' or payload_type == 'timetable' or bool(p.payload.get('day') and p.payload.get('time'))
-            is_hs_website = source == 'hs_aalen_website'
-            is_asta = source == 'asta_website'
-            
-            # For timetable entries, create a formatted text
-            if is_timetable:
-                formatted_text = f"{p.payload.get('program', '')} - {p.payload.get('day', '')} {p.payload.get('time', '')} - {p.payload.get('lecture_info', '')[:100]}"
-                result_type = 'timetable'
-            elif is_hs_website:
-                # For HS Aalen website, use title + content
-                formatted_text = f"{p.payload.get('title', '')}: {p.payload.get('content', '')[:150]}"
-                result_type = 'website'
-            elif is_asta:
-                # For ASTA content, use title + content
-                formatted_text = f"{p.payload.get('title', '')}: {p.payload.get('content', '')[:150]}"
-                result_type = 'asta'
-            else:
-                formatted_text = p.payload.get("text", "")
-                result_type = 'webpage'
-            
-            results.append({
-                "score": float(p.score),
-                "url": p.payload.get("url"),
-                "text": formatted_text,
-                "title": p.payload.get("title"),  # For website/asta results
-                "program": p.payload.get("program"),  # For timetable
-                "day": p.payload.get("day"),  # For timetable
-                "time": p.payload.get("time"),  # For timetable
-                "semester": p.payload.get("semester"),
-                "room": p.payload.get("room"),
-                "type": result_type,  # "timetable", "website", "asta", or "webpage"
-            })
-
-        # D. Boost and Re-rank
-        ranked_results = boost_and_rank(
-            q,
-            results,
-            model_for_provider,
-            include_rerank,
-            provider=resolved_provider,
-            openai_api_key=active_openai_key,
-            strict_match=strict_match,
-        )
-
-        # D2. URL-based deduplication — best chunk per URL wins
-        before_dedup = len(ranked_results)
-        ranked_results = dedup_by_url(ranked_results)
-        score_log.info("Dedup: %d → %d results (-%d duplicate URLs)", before_dedup, len(ranked_results), before_dedup - len(ranked_results))
-
-        # E. Summary (only generated on page 1)
-        summary = ""
-        if ranked_results and include_summary and page == 1:
-            summary = generate_summary(
-                q,
-                ranked_results,
-                model_for_provider,
-                provider=resolved_provider,
-                openai_api_key=active_openai_key,
-            )
-
-        # Save to Cache (Simple size management)
-        if len(search_cache) >= MAX_CACHE_SIZE:
-            search_cache.pop(next(iter(search_cache)))
-        search_cache[cache_key] = (ranked_results, summary, semantic_query)
-
-    # If search was first run without summary, lazily generate it once on page 1.
-    if page == 1 and include_summary and ranked_results and not summary:
-        summary = generate_summary(
-            q,
-            ranked_results,
-            model_for_provider,
-            provider=resolved_provider,
-            openai_api_key=active_openai_key,
-        )
-        search_cache[cache_key] = (ranked_results, summary, semantic_query)
-
-    # 2. Pagination (Applied to cached results)
+    # Pagination
     start = (page - 1) * per_page
     end = start + per_page
     page_results = ranked_results[start:end]
@@ -902,17 +211,14 @@ async def api_search(
         "semester": semester,
     }
 
-
 class FeedbackRequest(BaseModel):
     query: str
     summary: str
-    rating: int  # 1 for up, -1 for down
+    rating: int  
     model: str
-
 
 @app.post("/api/feedback")
 async def save_feedback(req: FeedbackRequest):
-    """Save user feedback to a JSONL file."""
     try:
         feedback_data = {
             "timestamp": datetime.now().isoformat(),
@@ -925,14 +231,12 @@ async def save_feedback(req: FeedbackRequest):
             f.write(json.dumps(feedback_data, ensure_ascii=False) + "\n")
         return {"status": "ok"}
     except Exception as e:
-        print(f"Error saving feedback: {e}")
         raise HTTPException(status_code=500, detail="Could not save feedback")
-
 
 @app.get("/api/status")
 async def get_status():
-    """Check if the database has indexed data."""
     try:
+        client = global_engine._qdrant
         if not client:
             return {
                 "status": "error",
@@ -941,7 +245,6 @@ async def get_status():
                 "collections": []
             }
         
-        # Get all collections
         collections_response = client.get_collections()
         collections = collections_response.collections if collections_response else []
         
@@ -952,7 +255,6 @@ async def get_status():
         for col in collections:
             col_name = col.name
             try:
-                # Try to get collection info
                 info = client.get_collection(col_name)
                 point_count = info.points_count if info else 0
                 collection_status[col_name] = {
@@ -963,7 +265,6 @@ async def get_status():
                 if point_count > 0:
                     ready_collections += 1
             except Exception as e:
-                print(f"Error getting info for collection {col_name}: {e}")
                 collection_status[col_name] = {"error": str(e), "empty": True}
         
         total_collections = len(collections)
@@ -972,7 +273,7 @@ async def get_status():
             return sum(collection_status.get(name, {}).get("points", 0) for name in names)
 
         website_points = points_for(["hs_aalen_website", "asta_content"])
-        timetable_points = points_for(["timetable_data", "starplan_timetable"])
+        timetable_points = points_for(["timetable_data", "starplan_timetable", "starplan_SoSe26"])
         search_points = points_for(["hs_aalen_search"])
 
         if total_points == 0:
@@ -991,10 +292,8 @@ async def get_status():
             current_stage = "Finalisierung"
             stage_details = "Qualitätscheck und Abschluss der initialen Indizierung."
 
-        # System is "indexing" if dataset is still tiny.
         is_indexing = total_points < 10
 
-        # Progress is based on collection readiness + warm-up points.
         point_progress = min(total_points / 10.0, 1.0)
         if total_collections > 0:
             collection_progress = ready_collections / total_collections
@@ -1015,14 +314,12 @@ async def get_status():
             "stage_details": stage_details,
             "collections": collection_status,
             "reranker": {
-                "model": CROSS_ENCODER_MODEL if _cross_encoder is not None else None,
-                "enabled": _cross_encoder is not None,
-                "top_k": CROSS_ENCODER_TOP_K,
+                "model": global_engine.config.get("search", {}).get("cross_encoder_model", "") if global_engine._cross_encoder is not None else None,
+                "enabled": global_engine._cross_encoder is not None,
             },
             "message": "Datenbank wird gerade indexiert... Bitte haben Sie Geduld!" if is_indexing else "Bereit zur Suche"
         }
     except Exception as e:
-        print(f"Error getting status: {e}")
         return {
             "status": "error",
             "message": str(e),
@@ -1030,13 +327,10 @@ async def get_status():
             "collections": []
         }
 
-
 @app.get("/")
 async def read_index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

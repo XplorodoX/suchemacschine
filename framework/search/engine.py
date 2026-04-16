@@ -341,7 +341,19 @@ class SearchEngine:
             try:
                 # Main query + expanded query for non-timetable sources
                 if result_type == "timetable":
-                    points = self._query_collection(collection, orig_vec, query, limit)
+                    target_collection = collection
+                    # Semester resolution override
+                    semester = kwargs.get("semester")
+                    if semester:
+                        sem_col = f"starplan_{semester}"
+                        # Check existance via try/except on query
+                        try:
+                            points = self._query_collection(sem_col, orig_vec, query, limit)
+                            target_collection = sem_col
+                        except Exception:
+                            points = self._query_collection(collection, orig_vec, query, limit)
+                    else:
+                        points = self._query_collection(collection, orig_vec, query, limit)
                 else:
                     orig_pts = self._query_collection(collection, orig_vec, query, limit)
                     exp_pts = self._query_collection(collection, exp_vec, expanded_query, limit)
@@ -613,6 +625,18 @@ class SearchEngine:
             strict_match=strict_match,
             relevance_min_score=self.relevance_min_score,
         )
+
+        # URL-based deduplication
+        seen = set()
+        deduped = []
+        for r in ranked:
+            key = r.get("url", "")
+            if r.get("type", "") == "timetable":
+                 key = f"{key}|{r.get('text', '')[:80]}"
+            if key not in seen:
+                 seen.add(key)
+                 deduped.append(r)
+        ranked = deduped
 
         # LLM reranking (only if no cross-encoder)
         if include_rerank and llm_enabled and self._cross_encoder is None:

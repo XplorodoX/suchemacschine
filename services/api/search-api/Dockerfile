@@ -13,10 +13,15 @@ RUN pip install --no-cache-dir \
     requests \
     aiofiles \
     numpy \
-    pydantic
+    pydantic \
+    sentence-transformers \
+    fastembed \
+    pyyaml
 
-COPY app.py .
-COPY static/ static/
+COPY services/api/search-api/app.py .
+COPY services/api/search-api/static/ static/
+COPY framework/ framework/
+COPY configs/ configs/
 
 ENV QDRANT_HOST=qdrant
 ENV QDRANT_PORT=6333

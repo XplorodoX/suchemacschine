@@ -152,12 +152,11 @@ services:
 
   # ============ API SERVICES ============
 
-  # Main Search API
   search-api:
     image: suchemacschine/search-api:latest
     build:
-      context: ./api/search-api
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/api/search-api/Dockerfile
     container_name: search-api-prod
     ports:
       - "8055:8000"

@@ -13,8 +13,8 @@ services:
 
   search-api:
     build:
-      context: ./scripts
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/api/search-api/Dockerfile
     container_name: search-api-service
     ports:
       - "8055:8000"
