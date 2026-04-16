@@ -1,0 +1,92 @@
+[
+  {
+    "query": "Rektor HS Aalen",
+    "expected_url_contains": ["rektorat", "leitung"],
+    "expected_keywords": ["rektor", "rektorat"],
+    "category": "person"
+  },
+  {
+    "query": "Prüfungsordnung Informatik SPO",
+    "expected_url_contains": ["spo", "pruefungsordnung", "informatik"],
+    "expected_keywords": ["prüfungsordnung", "spo", "informatik"],
+    "category": "document"
+  },
+  {
+    "query": "Immatrikulation Bewerbung Fristen",
+    "expected_url_contains": ["immatrikulation", "bewerbung", "zulassung"],
+    "expected_keywords": ["immatrikulation", "bewerbung"],
+    "category": "process"
+  },
+  {
+    "query": "Theoretische Informatik Vorlesungszeiten",
+    "expected_type": "timetable",
+    "expected_keywords": ["theoretische informatik", "tib"],
+    "category": "timetable"
+  },
+  {
+    "query": "Exmatrikulation beantragen",
+    "expected_url_contains": ["exmatrikulation"],
+    "expected_keywords": ["exmatrikulation"],
+    "category": "process"
+  },
+  {
+    "query": "Stundenplan Informatik Montag",
+    "expected_type": "timetable",
+    "expected_keywords": ["informatik", "montag"],
+    "category": "timetable"
+  },
+  {
+    "query": "Bafög Studienfinanzierung",
+    "expected_url_contains": ["bafög", "finanzierung", "asta"],
+    "expected_keywords": ["bafög"],
+    "category": "student_services"
+  },
+  {
+    "query": "Bibliothek Öffnungszeiten",
+    "expected_url_contains": ["bibliothek"],
+    "expected_keywords": ["bibliothek", "öffnungszeiten"],
+    "category": "facilities"
+  },
+  {
+    "query": "Semesterticket VVS",
+    "expected_url_contains": ["semesterticket", "vvs"],
+    "expected_keywords": ["semesterticket"],
+    "category": "student_services"
+  },
+  {
+    "query": "Auslandssemester Erasmus",
+    "expected_url_contains": ["ausland", "erasmus", "international"],
+    "expected_keywords": ["ausland", "erasmus"],
+    "category": "international"
+  },
+  {
+    "query": "Maschinenbau Stundenplan SoSe",
+    "expected_type": "timetable",
+    "expected_keywords": ["maschinenbau", "mb"],
+    "category": "timetable"
+  },
+  {
+    "query": "Praktikum Anmeldung Industriepraktikum",
+    "expected_url_contains": ["praktikum"],
+    "expected_keywords": ["praktikum"],
+    "category": "study"
+  },
+  {
+    "query": "Mensa Speiseplan",
+    "expected_url_contains": ["mensa", "speise"],
+    "expected_keywords": ["mensa"],
+    "category": "facilities"
+  },
+  {
+    "query": "Prüfungsanmeldung Deadline",
+    "expected_url_contains": ["prüfung", "anmeldung"],
+    "expected_keywords": ["prüfung", "anmeldung"],
+    "category": "exam"
+  },
+  {
+    "query": "Hochschule Aalen Kontakt Sekretariat",
+    "expected_url_contains": ["kontakt", "sekretariat"],
+    "expected_keywords": ["kontakt", "sekretariat"],
+    "category": "contact"
+  }
+]
