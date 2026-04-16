@@ -149,8 +149,8 @@ class ASTAFullScraper:
             content = soup.get_text(separator=' ', strip=True)
             content = re.sub(r'\s+', ' ', content)
             
-            # Filter out very short pages
-            if len(content) < 150:
+            # Filter out only completely empty pages
+            if not content.strip():
                 return False
             
             # Limit to 3000 chars

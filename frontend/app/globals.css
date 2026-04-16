@@ -24,6 +24,23 @@ body {
 
 @layer components {
   .search-bar {
-    @apply bg-[var(--surface)] border border-[var(--border)] rounded-[24px] flex items-center px-4 py-1.5 transition-all focus-within:bg-[var(--surface-hover)] focus-within:shadow-lg;
+    @apply bg-[var(--surface)] border border-[var(--border)] rounded-[28px] flex items-center px-4 py-2 transition-all duration-200 focus-within:bg-[var(--surface-hover)] focus-within:shadow-[0_1px_6px_rgba(32,33,36,0.28)] focus-within:border-transparent;
+  }
+
+  .tab-btn {
+    @apply relative pb-3 text-sm font-medium transition-colors duration-200 flex items-center gap-1.5 whitespace-nowrap;
+  }
+
+  .tab-btn-active {
+    @apply text-[var(--accent)];
+  }
+
+  .tab-btn-inactive {
+    @apply text-[var(--text-secondary)] hover:text-[var(--text)];
+  }
+
+  /* Text-constrained underline for active tab as seen in Google search results */
+  .tab-underline {
+    @apply absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--accent)] rounded-t-[3px];
   }
 }

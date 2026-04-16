@@ -1,0 +1,32 @@
+name: Deploy Test Stack
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test
+      - test-deploy
+
+jobs:
+  deploy:
+    name: Deploy to campusindextest
+    runs-on:
+      - self-hosted
+      - linux
+      - campusindextest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and restart test stack
+        env:
+          COMPOSE_PROJECT_NAME: campusindex-test
+        run: |
+          docker compose --env-file .env.test -f docker-compose.yaml up -d --build --remove-orphans
+
+      - name: Show running containers
+        env:
+          COMPOSE_PROJECT_NAME: campusindex-test
+        run: |
+          docker compose --env-file .env.test -f docker-compose.yaml ps

@@ -2,6 +2,7 @@ import json
 import os
 import re
 import unicodedata
+import math
 from typing import List, Optional, Dict
 from urllib.parse import urlparse
 
@@ -39,6 +40,12 @@ def init_db():
                 short_clicks INTEGER DEFAULT 0,
                 long_clicks INTEGER DEFAULT 0,
                 PRIMARY KEY (query, url)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS query_stats (
+                query TEXT PRIMARY KEY,
+                search_count INTEGER DEFAULT 1
             )
         ''')
         conn.commit()
@@ -117,6 +124,7 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.2,
             "starplan_timetable": 2.0,
             "asta_content": 0.1,
+            "hs_aalen_pdfs": 0.1,   # NEU
         }
     if query_type == "asta":
         return {
@@ -124,13 +132,15 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.3,
             "starplan_timetable": 0.1,
             "asta_content": 2.0,
+            "hs_aalen_pdfs": 0.3,   # NEU
         }
     # General query — balanced
     return {
         "hs_aalen_search": 1.0,
         "hs_aalen_website": 0.7,
         "starplan_timetable": 0.3,
-        "asta_content": 0.4,
+        "asta_content": 0.6,        # War 0.4, erhöht für ASTA-Nischeninhalte
+        "hs_aalen_pdfs": 0.8,       # NEU – PDFs werden jetzt durchsucht
     }
 # Common university term synonyms for query expansion
 PROGRAM_SYNONYMS = {
@@ -205,6 +215,7 @@ def hybrid_search(
         "hs_aalen_website": weights.get("hs_aalen_website", 0.7),
         timetable_collection: weights.get("starplan_timetable", 0.3),
         "asta_content": weights.get("asta_content", 0.4),
+        "hs_aalen_pdfs": weights.get("hs_aalen_pdfs", 0.8),   # NEU
     }
 
     per_collection_limit = max(10, total_limit)
@@ -344,7 +355,13 @@ def _search_collection(
 
 
 def _format_results(points, collection_name: str) -> list[dict]:
-    """Convert Qdrant ScoredPoint objects to dicts."""
+    """Convert Qdrant ScoredPoint objects to dicts.
+
+    FIX 3: Use full content (up to 2000 chars) in the `text` field so that:
+      - BM25 sparse vectors have enough signal to match multi-word queries
+      - lexical_relevance() can actually find bigrams/trigrams
+      - PDF content embedded during scraping is searchable
+    """
     formatted = []
     for p in points:
         payload = p.payload or {}
@@ -356,8 +373,9 @@ def _format_results(points, collection_name: str) -> list[dict]:
             or payload_type == "timetable"
             or (payload.get("day") and payload.get("time"))
         )
-        is_asta = source == "asta_website"
-        is_hs_website = source == "hs_aalen_website"
+        is_asta = source in ("asta_website", "asta")
+        is_hs_website = source in ("hs_aalen_website", "hs_aalen")
+        is_pdf = payload_type == "pdf" or source == "hs_aalen_pdfs"  # NEU
 
         if is_timetable:
             parts = [
@@ -367,18 +385,51 @@ def _format_results(points, collection_name: str) -> list[dict]:
             ]
             text = " — ".join(pt for pt in parts if pt)
             result_type = "timetable"
-        elif is_hs_website or is_asta:
-            text = f"{payload.get('title', '')}: {payload.get('content', '')[:200]}"
-            result_type = "asta" if is_asta else "website"
-        else:
+
+        elif is_pdf:                                                   # NEU – vor dem asta-check
             text = payload.get("text", "")
+            result_type = "pdf"
+
+        elif is_hs_website or is_asta:
+            # FIX 3 — was: content[:200]. Now: up to 2000 chars so ranking has signal.
+            # The frontend snippet is already limited in ResultItem.tsx via line-clamp.
+            title = payload.get("title", "")
+            content = payload.get("content", "")[:2000]
+
+            # Include PDF text if the page had embedded PDFs
+            pdf_extra = ""
+            pdf_sources = payload.get("pdf_sources", [])
+            if pdf_sources:
+                # Pull pdf text from sections payload if available
+                sections = payload.get("sections", [])
+                pdf_section = next((s for s in sections if s.get("heading") == "PDF-Dokumente"), None)
+                if pdf_section:
+                    pdf_extra = " " + pdf_section.get("text", "")[:500]
+
+            text = f"{title}: {content}{pdf_extra}".strip()
+            result_type = "asta" if is_asta else "website"
+
+        else:
+            # hs_aalen_search chunks already have a `text` field
+            # Also include section heading for better context
+            raw_text = payload.get("text", "")
+            section_heading = payload.get("section_heading", "")
+            if section_heading and section_heading not in raw_text[:50]:
+                text = f"{section_heading}: {raw_text}"
+            else:
+                text = raw_text
             result_type = "webpage"
+
+        # Resolve title (prefer payload.title, fall back to first line of text)
+        title_field = payload.get("title", "")
+        if not title_field and text:
+            title_field = text[:60].split("\n")[0]
 
         formatted.append({
             "score": float(p.score),
             "url": payload.get("url", ""),
             "text": text,
-            "title": payload.get("title", ""),
+            "title": title_field,
             "program": payload.get("program"),
             "day": payload.get("day"),
             "time": payload.get("time"),
@@ -432,13 +483,13 @@ def _detect_intent_local(q: str) -> dict:
     q_low = q.lower()
     
     if any(w in q_low for w in ["prof", "dozent", "sprechstunde", "professor"]):
-        return {"intent": "PERSON", "entity": q}
+        return {"intent": "person", "entity": q}
     if any(w in q_low for w in ["spo", "ordnung", "satzung", "antrag", "formular", "pdf"]):
-        return {"intent": "DOCUMENT", "entity": q}
+        return {"intent": "document", "entity": q}
     if any(w in q_low for w in ["stundenplan", "vorlesung", "prüfung", "klausur", "termin"]):
-        return {"intent": "TIMETABLE", "entity": q}
+        return {"intent": "timetable", "entity": q}
     
-    return {"intent": "GENERAL", "entity": q}
+    return {"intent": "general", "entity": q}
 
 
 def build_ngrams(tokens: list[str], n: int) -> set[str]:
@@ -448,8 +499,9 @@ def build_ngrams(tokens: list[str], n: int) -> set[str]:
 
 def lexical_relevance(query: str, text: str, url: str) -> float:
     """
-    Compute lexical relevance using unigrams, bigrams, trigrams,
-    exact phrase matching, and long-token bonuses.
+    FIX 3 improvement: also search inside PDF content that is now part of `text`.
+    The function itself is unchanged in logic — it automatically benefits because
+    `text` now contains up to 2000 chars including PDF snippets.
     """
     q_tokens = tokenize(query)
     if not q_tokens:
@@ -457,27 +509,25 @@ def lexical_relevance(query: str, text: str, url: str) -> float:
 
     haystack = f"{normalize_text(text)} {normalize_text(url)}"
 
-    # Unigram coverage (single token matches)
+    # Unigram coverage
     matched_unigrams = {tok for tok in q_tokens if tok in haystack}
     unigram_coverage = len(matched_unigrams) / len(q_tokens)
 
-    # Bigram matching (word pairs together)
+    # Bigram bonus
     bigram_bonus = 0.0
     if len(q_tokens) >= 2:
         q_bigrams = build_ngrams(q_tokens, 2)
         matched_bigrams = {bg for bg in q_bigrams if bg in haystack}
         if q_bigrams:
-            bigram_coverage = len(matched_bigrams) / len(q_bigrams)
-            bigram_bonus = 0.25 * bigram_coverage
+            bigram_bonus = 0.25 * (len(matched_bigrams) / len(q_bigrams))
 
-    # Trigram matching (3-word phrases)
+    # Trigram bonus
     trigram_bonus = 0.0
     if len(q_tokens) >= 3:
         q_trigrams = build_ngrams(q_tokens, 3)
         matched_trigrams = {tg for tg in q_trigrams if tg in haystack}
         if q_trigrams:
-            trigram_coverage = len(matched_trigrams) / len(q_trigrams)
-            trigram_bonus = 0.15 * trigram_coverage
+            trigram_bonus = 0.15 * (len(matched_trigrams) / len(q_trigrams))
 
     # Exact phrase bonus
     phrase_bonus = 0.0
@@ -485,14 +535,20 @@ def lexical_relevance(query: str, text: str, url: str) -> float:
     if len(normalized_query) >= 6 and normalized_query in haystack:
         phrase_bonus = 0.3
 
-    # Long token bonus (important for German compound words)
+    # Long token bonus (German compound words like "Prüfungsordnung")
     long_token_bonus = 0.0
     long_tokens = [t for t in q_tokens if len(t) >= 6]
     if long_tokens:
         long_matches = sum(1 for t in long_tokens if t in haystack)
         long_token_bonus = 0.1 * (long_matches / len(long_tokens))
 
-    score = (0.55 * unigram_coverage) + bigram_bonus + trigram_bonus + phrase_bonus + long_token_bonus
+    score = (
+        0.55 * unigram_coverage
+        + bigram_bonus
+        + trigram_bonus
+        + phrase_bonus
+        + long_token_bonus
+    )
     return max(0.0, min(1.0, score))
 
 
@@ -550,20 +606,49 @@ def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
 
 
 @app.get("/api/search")
-async def api_search(q: str = Query(...)):
+async def api_search(q: str = Query(...), page: int = Query(1)):
     # Local intent detection (no LLM)
     intent_data = _detect_intent_local(q)
     
+    q_clean = q.lower().strip()
+    if len(q_clean) >= 3:
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            cur = conn.cursor()
+            cur.execute("SELECT search_count FROM query_stats WHERE query = ?", (q_clean,))
+            row = cur.fetchone()
+            if row:
+                cur.execute("UPDATE query_stats SET search_count = search_count + 1 WHERE query = ?", (q_clean,))
+            else:
+                cur.execute("INSERT INTO query_stats (query, search_count) VALUES (?, 1)", (q_clean,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error logging query: {e}")
+    
     # Hybrid vector search (dense + BM25 sparse with RRF)
-    results = hybrid_search(q, model, client, total_limit=100)
+    # Get plenty of candidates for deep pagination
+    results = hybrid_search(q, model, client, total_limit=150)
     
     # Ranking & Context
     ranked = boost_and_rank(q, results, intent_data)
-    contextualized = fetch_parent_context(ranked)
+    
+    total_results = len(ranked)
+    per_page = 10
+    total_pages = max(1, math.ceil(total_results / per_page))
+    
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    contextualized = fetch_parent_context(ranked[start_idx:end_idx])
     
     return {
-        "results": contextualized[:10], 
-        "total_results": len(ranked), 
+        "results": contextualized, 
+        "total_results": total_results, 
+        "page": page,
+        "total_pages": total_pages,
+        "per_page": per_page,
         "filters": intent_data, 
     }
 
@@ -597,6 +682,19 @@ async def register_click(data: FeedbackRequest):
     except Exception as e:
         print(f"DB Error: {e}")
         return {"status": "error", "message": str(e)}
+
+@app.get("/api/suggestions")
+async def api_suggestions():
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cur = conn.cursor()
+        cur.execute("SELECT query FROM query_stats ORDER BY search_count DESC LIMIT 15")
+        rows = cur.fetchall()
+        conn.close()
+        return {"suggestions": [row[0].title() for row in rows]}
+    except Exception as e:
+        print(f"Suggestions Error: {e}")
+        return {"suggestions": []}
 
 @app.get("/api/health")
 async def health(): return {"status": "ok"}
