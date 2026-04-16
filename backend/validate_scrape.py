@@ -1,13 +1,15 @@
 import json
 from collections import Counter
 from datetime import datetime
+from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
 
 ROOT_SITEMAP_INDEX = "https://www.hs-aalen.de/sitemap.xml"
-DATA_FILE = "/home/flo/suchemacschine/data.jsonl"
-OUTPUT_REPORT = "/home/flo/suchemacschine/validation_report.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_FILE = PROJECT_ROOT / "data.jsonl"
+OUTPUT_REPORT = PROJECT_ROOT / "reports" / "validation_report.json"
 
 
 def fetch_sitemap_urls() -> list[str]:

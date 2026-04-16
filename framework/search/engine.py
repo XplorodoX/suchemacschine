@@ -24,6 +24,7 @@ import yaml
 from .ranking import (
     boost_and_rank,
     expand_program_terms,
+    fuzzy_correct_query,
     has_strong_evidence,
     normalize_text,
 )
@@ -53,6 +54,18 @@ class SearchEngine:
         self.relevance_min_score = float(search_cfg.get("relevance_min_score", 0.34))
         self.program_synonyms: dict = search_cfg.get("program_synonyms") or {}
         self.module_synonyms: dict = search_cfg.get("module_synonyms") or {}
+
+        # Build fuzzy-matching vocabulary from all configured synonyms.
+        # Keys are canonical terms (e.g. "informatik"), values are known aliases.
+        self._fuzzy_vocabulary: set[str] = set()
+        for key, synonyms in self.program_synonyms.items():
+            self._fuzzy_vocabulary.add(normalize_text(key))
+            for s in (synonyms or []):
+                self._fuzzy_vocabulary.update(normalize_text(s).split())
+        for key, synonyms in self.module_synonyms.items():
+            self._fuzzy_vocabulary.add(normalize_text(key))
+            for s in (synonyms or []):
+                self._fuzzy_vocabulary.update(normalize_text(s).split())
 
         llm_cfg = self.config.get("llm", {})
         self.ollama_url = os.getenv("OLLAMA_URL", llm_cfg.get("ollama_url", "http://localhost:11434/api/generate"))
@@ -373,6 +386,12 @@ class SearchEngine:
         else:
             active_model = ""
             active_key = ""
+
+        # Fuzzy correction: fix typos before any expansion
+        corrected_query, was_corrected = fuzzy_correct_query(query, self._fuzzy_vocabulary)
+        if was_corrected:
+            log.info("Fuzzy correction applied: %r → %r", query, corrected_query)
+            query = corrected_query
 
         # Query expansion
         expanded_query = query

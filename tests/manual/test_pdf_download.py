@@ -4,8 +4,15 @@
 import sys
 
 import requests
+<<<<<<<< HEAD:tests/manual/test_pdf_download.py
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+========
 
 sys.path.insert(0, '/home/flo/suchemacschine/scripts')
+>>>>>>>> origin/main:tests/test_pdf_download.py
 
 from pdf_extractor import download_and_extract_pdf
 from requests.adapters import HTTPAdapter

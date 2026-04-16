@@ -2,6 +2,13 @@
 """Quick test to verify PDF extraction functionality."""
 
 import sys
+<<<<<<<< HEAD:tests/manual/test_pdf_extraction.py
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+========
+>>>>>>>> origin/main:tests/test_pdf_extraction.py
 
 sys.path.insert(0, '/home/flo/suchemacschine/scripts')
 

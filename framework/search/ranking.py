@@ -55,6 +55,94 @@ def extract_quoted_phrases(query: str) -> list[str]:
 
 
 # -------------------------------------------------------------------------
+# Fuzzy query correction (Levenshtein)
+# -------------------------------------------------------------------------
+
+def levenshtein_distance(a: str, b: str) -> int:
+    """Compute the edit distance between two strings."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        curr = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            curr[j] = min(
+                prev[j] + 1,          # deletion
+                curr[j - 1] + 1,      # insertion
+                prev[j - 1] + (ca != cb),  # substitution
+            )
+        prev = curr
+    return prev[-1]
+
+
+def fuzzy_correct_query(
+    query: str,
+    vocabulary: set[str],
+    max_distance: int = 2,
+    min_token_len: int = 4,
+    stopwords: set[str] = DEFAULT_STOPWORDS,
+) -> tuple[str, bool]:
+    """
+    Correct typos in *query* by replacing tokens not found in *vocabulary*
+    with the closest match (by Levenshtein distance).
+
+    Only tokens with length >= min_token_len are corrected (short tokens have
+    too many false-positive near-neighbours).
+
+    Returns:
+        (corrected_query, was_corrected)
+    """
+    if not vocabulary:
+        return query, False
+
+    tokens = re.findall(r"[a-zA-ZäöüÄÖÜß0-9]+|\s+|[^\w]", query)
+    corrected_tokens: list[str] = []
+    was_corrected = False
+
+    for tok in tokens:
+        word = tok.strip()
+        word_lower = word.lower()
+
+        # Leave whitespace, punctuation, stopwords, short words, and known vocab untouched
+        if (
+            not word
+            or word_lower in stopwords
+            or len(word) < min_token_len
+            or word_lower in vocabulary
+        ):
+            corrected_tokens.append(tok)
+            continue
+
+        # Find best match in vocabulary
+        best_word: str | None = None
+        best_dist = max_distance + 1
+
+        for candidate in vocabulary:
+            # Skip candidates with very different lengths (fast pre-filter)
+            if abs(len(candidate) - len(word_lower)) > max_distance:
+                continue
+            dist = levenshtein_distance(word_lower, candidate)
+            if dist < best_dist:
+                best_dist = dist
+                best_word = candidate
+
+        if best_word is not None and best_dist <= max_distance:
+            # Preserve original capitalisation if the token was capitalised
+            replacement = best_word.capitalize() if word[0].isupper() else best_word
+            corrected_tokens.append(replacement)
+            was_corrected = True
+            log.debug("Fuzzy correction: %r → %r (dist=%d)", word, replacement, best_dist)
+        else:
+            corrected_tokens.append(tok)
+
+    return "".join(corrected_tokens), was_corrected
+
+
+# -------------------------------------------------------------------------
 # Lexical relevance
 # -------------------------------------------------------------------------
 

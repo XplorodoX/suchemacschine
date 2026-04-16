@@ -1,12 +1,14 @@
 import json
 import os
+from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 
 # Path to the scraped data
-INPUT_FILE = "/home/flo/suchemacschine/data.jsonl"
-OUTPUT_FILE = "/home/flo/suchemacschine/processed_data.jsonl"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+INPUT_FILE = PROJECT_ROOT / "data.jsonl"
+OUTPUT_FILE = PROJECT_ROOT / "processed_data.jsonl"
 
 # Upgraded to multilingual-e5-base: much better multilingual quality (768-dim).
 # IMPORTANT: After changing this model you must re-index all Qdrant collections!
