@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test searching for content from PDFs."""
 
-import requests
 import time
+
+import requests
 
 base = 'http://localhost:8000/api/search'
 
@@ -40,7 +41,7 @@ for q in test_queries:
             print(f"    Score: {res.get('score', 0):.4f}")
             text = res.get('text', '')
             if 'Terminplan' in text or 'Sommersemester' in text:
-                print(f"    ✓ Contains PDF content!")
+                print("    ✓ Contains PDF content!")
             print(f"    Snippet: {text[:200]}...")
     
     except Exception as e:

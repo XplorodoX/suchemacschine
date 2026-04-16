@@ -1,5 +1,6 @@
-import requests
 import time
+
+import requests
 
 base = 'http://localhost:8000/api/search'
 q = 'zweites semester informatik master module'
@@ -22,7 +23,7 @@ data = r.json()
 
 print(f'✓ Zeit: {elapsed:.2f}s')
 print(f'✓ Ergebnisse: {len(data["results"])}')
-print(f'\nScores:')
+print('\nScores:')
 for i, r in enumerate(data['results'], 1):
     print(f'  [{i}] Score: {r.get("score", 0):.4f}')
     print(f'       URL: {r.get("url", "")}')
@@ -50,7 +51,7 @@ try:
     
     print(f'✓ Zeit: {elapsed:.2f}s')
     print(f'✓ Ergebnisse: {len(data["results"])}')
-    print(f'\nScores (nach reranking):')
+    print('\nScores (nach reranking):')
     for i, r in enumerate(data['results'], 1):
         print(f'  [{i}] Score: {r.get("score", 0):.4f}')
         print(f'       URL: {r.get("url", "")}')

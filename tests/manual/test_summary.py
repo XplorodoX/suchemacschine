@@ -1,5 +1,6 @@
-import requests
 import time
+
+import requests
 
 base = 'http://localhost:8000/api/search'
 q = 'zweites semester informatik master module'

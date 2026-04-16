@@ -2,15 +2,22 @@
 """Test PDF download and extraction."""
 
 import sys
+
 import requests
+<<<<<<<< HEAD:tests/manual/test_pdf_download.py
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+========
+
+sys.path.insert(0, '/home/flo/suchemacschine/scripts')
+>>>>>>>> origin/main:tests/test_pdf_download.py
 
 from pdf_extractor import download_and_extract_pdf
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
 
 def create_session():
     session = requests.Session()
@@ -29,17 +36,17 @@ def create_session():
 session = create_session()
 pdf_url = "https://www.hs-aalen.de/fileadmin/content/dokumente/terminpl%C3%A4ne-semesterpl%C3%A4ne/Terminplan_Sommersemester_2026.pdf"
 
-print(f"Testing PDF download and extraction from:")
+print("Testing PDF download and extraction from:")
 print(f"  {pdf_url}\n")
 
 try:
     text = download_and_extract_pdf(pdf_url, session)
     if text:
-        print(f"✓ PDF extracted successfully!")
+        print("✓ PDF extracted successfully!")
         print(f"  Content length: {len(text)} chars")
         print(f"  Preview: {text[:200]}...")
     else:
-        print(f"✗ No text extracted from PDF")
+        print("✗ No text extracted from PDF")
 except Exception as e:
     print(f"✗ Error: {e}")
     import traceback

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test multi-collection search"""
 
+
 import requests
-import json
 
 print("=" * 70)
 print("Testing Multi-Collection Search with Timetables")
@@ -31,7 +31,7 @@ for query in test_queries:
             data = r.json()
             print(f"Total results: {data['total_results']}")
             
-            print(f"\nTop 3 results:")
+            print("\nTop 3 results:")
             for i, result in enumerate(data['results'][:3], 1):
                 typ = result.get('type', 'webpage')
                 text = result.get('text', '')[:70]

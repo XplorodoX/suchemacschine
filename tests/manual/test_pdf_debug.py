@@ -2,14 +2,21 @@
 """Debug PDF link extraction."""
 
 import sys
+<<<<<<<< HEAD:tests/manual/test_pdf_debug.py
 import requests
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+========
+>>>>>>>> origin/main:tests/test_pdf_debug.py
 
-from pdf_extractor import find_pdf_links
+import requests
+
+sys.path.insert(0, '/home/flo/suchemacschine/scripts')
+
 from bs4 import BeautifulSoup
+from pdf_extractor import find_pdf_links
 
 session = requests.Session()
 session.headers.update({

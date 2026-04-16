@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Quick test of Starplan iCal URLs"""
 
-import requests
 import re
+
+import requests
 
 base_url = "https://vorlesungen.htw-aalen.de/splan"
 
@@ -39,7 +40,7 @@ if prog_match:
             try:
                 content = response.text if isinstance(response.content, bytes) else response.content
                 if 'BEGIN:VCALENDAR' in content:
-                    print(f"   ✓ Valid iCal format!")
+                    print("   ✓ Valid iCal format!")
                     
                     # Count events
                     event_count = content.count('BEGIN:VEVENT')
@@ -51,7 +52,7 @@ if prog_match:
                         print(f"   {line}")
                     break
                 else:
-                    print(f"   ✗ Not valid iCal")
+                    print("   ✗ Not valid iCal")
             except Exception as e:
                 print(f"   ✗ Error parsing: {e}")
         

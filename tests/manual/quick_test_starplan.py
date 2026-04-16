@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Quick test of Starplan integration"""
+
 import requests
-import json
 
 print("Testing Starplan Search Integration...")
 print("=" * 70)

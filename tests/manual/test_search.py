@@ -1,5 +1,6 @@
-import requests
 import time
+
+import requests
 
 base = 'http://localhost:8000/api/search'
 q = 'zweites semester informatik master module'
@@ -48,7 +49,7 @@ try:
     print(f'✓ Provider: {data["provider"]}')
     if data.get('summary'):
         print(f'✓ Summary gefunden! ({len(data["summary"])} chars)')
-        print(f'\nSummary Preview:')
+        print('\nSummary Preview:')
         print(data['summary'][:300] + '...')
     else:
         print('✗ KEIN Summary generiert!')

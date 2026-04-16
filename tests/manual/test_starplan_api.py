@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Test Starplan API endpoints to understand the data structure"""
 
-import requests
 import json
+
+import requests
+
 
 def test_starplan_endpoints():
     base_url = "https://vorlesungen.htw-aalen.de/splan"
@@ -39,19 +41,19 @@ def test_starplan_endpoints():
             if r.status_code == 200:
                 try:
                     data = r.json()
-                    print(f"    ✓ JSON Response!")
+                    print("    ✓ JSON Response!")
                     print(f"    Keys: {list(data.keys())[:8]}")
                     print(f"    Sample size: {len(json.dumps(data))} bytes")
                 except:
-                    print(f"    ✓ 200 OK but not JSON")
+                    print("    ✓ 200 OK but not JSON")
                     print(f"    Response size: {len(r.text)} bytes")
                     if len(r.text) < 500:
                         print(f"    Content: {r.text[:200]}")
             
         except requests.exceptions.Timeout:
-            print(f"    ✗ Timeout")
+            print("    ✗ Timeout")
         except requests.exceptions.ConnectionError:
-            print(f"    ✗ Connection error")
+            print("    ✗ Connection error")
         except Exception as e:
             print(f"    ✗ Error: {str(e)[:60]}")
 

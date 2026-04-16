@@ -1,0 +1,19 @@
+fastapi
+uvicorn
+qdrant-client
+fastembed
+requests
+httpx
+beautifulsoup4
+playwright
+aiofiles
+numpy
+sentence-transformers
+torch --extra-index-url https://download.pytorch.org/whl/cpu
+pypdf
+pdfplumber
+pytesseract
+pdf2image
+Pillow
+icalendar
+lxml

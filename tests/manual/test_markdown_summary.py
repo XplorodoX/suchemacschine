@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test the new markdown summary display."""
 
-import requests
 import time
+
+import requests
 
 base = 'http://localhost:8000/api/search'
 q = 'welche module zweites semester informatik master'
@@ -27,13 +28,13 @@ try:
     
     print(f"Time: {elapsed:.2f}s")
     print(f"LLM enabled: {data.get('llm_enabled')}")
-    print(f"\nSummary (for markdown display):\n")
+    print("\nSummary (for markdown display):\n")
     
     summary = data.get('summary', '')
     if summary:
         print(summary)
         print(f"\n✓ Summary length: {len(summary)} chars")
-        print(f"✓ Ready for Markdown rendering!")
+        print("✓ Ready for Markdown rendering!")
     else:
         print("✗ No summary generated")
         
