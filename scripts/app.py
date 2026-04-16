@@ -583,6 +583,31 @@ def boost_and_rank(
         return results
 
 
+def dedup_by_url(results: list) -> list:
+    """Keep only the highest-scoring chunk per URL.
+
+    Timetable entries share the same iCal URL but represent distinct events
+    (different day/time/lecture), so they are deduplicated by (url, text[:80])
+    instead of URL alone.
+    """
+    seen: dict[str, float] = {}
+    kept: list = []
+
+    for r in results:  # already sorted by score descending
+        url = r.get("url", "")
+
+        if r.get("type") == "timetable":
+            key = url + "|" + r.get("text", "")[:80]
+        else:
+            key = url
+
+        if key not in seen:
+            seen[key] = r.get("score", 0.0)
+            kept.append(r)
+
+    return kept
+
+
 def has_strong_evidence(results: list) -> bool:
     """Check if results are good enough for summary generation.
     

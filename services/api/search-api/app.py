@@ -2,10 +2,18 @@ import re
 import requests
 import json
 import os
+import logging
 import numpy as np
 import unicodedata
 from typing import Optional
 from datetime import datetime
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+score_log = logging.getLogger("scores")
 from fastapi import FastAPI, Query, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -423,6 +431,19 @@ def boost_and_rank(
     results = [r for r in results if r["score"] >= RELEVANCE_MIN_SCORE]
     results = sorted(results, key=lambda x: x["score"], reverse=True)
 
+    # Score logging — one line per result for easy grep/analysis
+    score_log.info("QUERY: %r  |  %d results after filter", query, len(results))
+    for i, r in enumerate(results[:10]):
+        score_log.info(
+            "  #%d  final=%.3f  vec=%.3f  lex=%.3f  type=%-10s  url=%s",
+            i + 1,
+            r.get("score", 0.0),
+            r.get("vector_score", 0.0),
+            r.get("lexical_score", 0.0),
+            r.get("type", "?"),
+            r.get("url", "")[:80],
+        )
+
     # 2. LLM Re-ranking (Only if requested)
     if not include_rerank:
         return results
@@ -467,6 +488,34 @@ def boost_and_rank(
         return results
     except Exception:
         return results
+
+
+def dedup_by_url(results: list) -> list:
+    """Keep only the highest-scoring chunk per URL.
+
+    Timetable entries share the same iCal URL but represent distinct events
+    (different day/time/lecture), so they are deduplicated by (url, text[:80])
+    instead of URL alone.
+    """
+    seen: dict[str, float] = {}   # url -> best score so far
+    kept: list = []
+
+    for r in results:  # already sorted by score descending
+        url = r.get("url", "")
+        score = r.get("score", 0.0)
+
+        if r.get("type") == "timetable":
+            # Each timetable event is unique — deduplicate on url+event text
+            key = url + "|" + r.get("text", "")[:80]
+        else:
+            key = url
+
+        if key not in seen:
+            seen[key] = score
+            kept.append(r)
+        # else: same URL already represented by a higher-scored chunk — skip
+
+    return kept
 
 
 def has_strong_evidence(results: list) -> bool:
@@ -709,6 +758,11 @@ async def api_search(
             openai_api_key=active_openai_key,
             strict_match=strict_match,
         )
+
+        # D2. URL-based deduplication — best chunk per URL wins
+        before_dedup = len(ranked_results)
+        ranked_results = dedup_by_url(ranked_results)
+        score_log.info("Dedup: %d → %d results (-%d duplicate URLs)", before_dedup, len(ranked_results), before_dedup - len(ranked_results))
 
         # E. Summary (only generated on page 1)
         summary = ""
