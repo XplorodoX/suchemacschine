@@ -20,6 +20,24 @@ sparse_vectors: false
 sparse_model: "Qdrant/bm42-all-minilm-l6-v2-attentions"
 
 # ------------------------------------------------------------------
+# ColBERT Late Interaction — token-level MaxSim scoring (opt-in)
+# ------------------------------------------------------------------
+# Statt eines einzigen Vektors pro Chunk werden Token-Embeddings gespeichert.
+# Bei der Suche matcht jedes Query-Token gegen alle Dokument-Token (MaxSim).
+# Deutlich besser für seltene Fachbegriffe wie "§19 Abs. 3" oder "SPO 2022".
+#
+# Empfohlenes Modell für Deutsch: jinaai/jina-colbert-v2 (multilingual, 128-dim)
+# Alternative (Englisch): colbert-ir/colbertv2.0
+#
+# Voraussetzung: pip install 'fastembed>=0.3'
+# WICHTIG: Erhöht Speicherverbrauch im Qdrant erheblich (~10-50x mehr Vektoren).
+#          Nach Aktivierung muss neu indexiert werden!
+# Aktivieren mit: USE_COLBERT_VECTORS=true oder colbert_vectors: true
+colbert_vectors: false
+colbert_model: "jinaai/jina-colbert-v2"
+colbert_dim: 128             # Token-Embedding-Dimension (128 für alle ColBERT-Modelle)
+
+# ------------------------------------------------------------------
 # Qdrant Verbindung
 # ------------------------------------------------------------------
 qdrant:
@@ -48,8 +66,15 @@ sources:
     collection: "hs_aalen_search"
     result_type: "webpage"
     search_weight: 0.50       # 50% der Suchergebnisse aus dieser Collection
-    chunk_size: 800
-    chunk_overlap: 120
+    # Parent-Child Retrieval (Small-to-Big):
+    #   chunk_size        → Child-Chunk (wird embedded, präzises Retrieval)
+    #   parent_chunk_size → Parent-Chunk (wird zurückgegeben, voller Kontext)
+    # Retrieval erfolgt über den kleinen Child-Chunk (200 Zeichen),
+    # das Ergebnis zeigt den größeren Parent-Chunk (1000 Zeichen).
+    # WICHTIG: Nach Änderung dieser Werte muss neu indexiert werden!
+    chunk_size: 200
+    chunk_overlap: 30
+    parent_chunk_size: 1000
 
   # 2. ASTA (Verfasste Studierendenschaft HS Aalen)
   - name: "asta"
@@ -61,8 +86,9 @@ sources:
     collection: "asta_content"
     result_type: "asta"
     search_weight: 0.10
-    chunk_size: 800
-    chunk_overlap: 100
+    chunk_size: 200
+    chunk_overlap: 30
+    parent_chunk_size: 800    # etwas kleiner, da ASTA-Seiten kompakter sind
 
   # 3. Starplan Stundenplan (iCal API der HTW Aalen)
   - name: "stundenplan"
@@ -98,6 +124,16 @@ sources:
 search:
   relevance_min_score: 0.34
   cross_encoder_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+
+  # ------------------------------------------------------------------
+  # Query Result Cache (TTL-based, in-memory, thread-safe)
+  # Identical queries within the TTL window are served instantly without
+  # re-embedding, Qdrant lookup, reranking, or LLM calls.
+  # Override via env: SEARCH_CACHE_TTL, SEARCH_CACHE_MAX_SIZE
+  # ------------------------------------------------------------------
+  cache:
+    ttl_seconds: 300    # 5 minutes — set to 0 to disable effectively
+    max_size: 512       # max cached queries before oldest-quarter eviction
 
   # Studiengangskürzel-Synonyme (ohne LLM, rein regelbasiert)
   program_synonyms:

@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 
@@ -7,9 +8,13 @@ from sentence_transformers import SentenceTransformer
 
 # Configuration
 COLLECTION_NAME = "hs_aalen_search"
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-QDRANT_HOST = "localhost"
-QDRANT_PORT = 6333
+# Upgraded to multilingual-e5-base (768-dim) for better German-language retrieval.
+# Set EMBEDDING_MODEL env var to override (must match the model used during indexing!).
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+# e5 models require a "query: " prefix at query time ("passage: " was used at index time)
+USE_E5_PREFIX = "e5" in MODEL_NAME.lower()
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 
 # Ollama Configuration
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -49,8 +54,9 @@ def search(query_text, limit=5):
     model = SentenceTransformer(MODEL_NAME)
     client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
-    # Generate embedding for the query
-    query_vector = model.encode(query_text).tolist()
+    # e5 models require "query: " prefix at search time
+    encoded_query = f"query: {query_text}" if USE_E5_PREFIX else query_text
+    query_vector = model.encode(encoded_query).tolist()
 
     # Search in Qdrant using the modern query_points API
     search_result = client.query_points(collection_name=COLLECTION_NAME, query=query_vector, limit=limit).points

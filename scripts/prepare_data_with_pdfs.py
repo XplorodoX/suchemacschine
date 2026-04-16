@@ -8,6 +8,7 @@ Comprehensive PDF integration:
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 import requests
@@ -31,7 +32,12 @@ PDF_RELEVANT_KEYWORDS = [
     "modul", "kurs", "course",  "dokument", "information"
 ]
 
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+# Upgraded to multilingual-e5-base (768-dim) for much better German retrieval quality.
+# Must match the model used in prepare_data.py and index_to_qdrant.py.
+# IMPORTANT: If you change this model, you must re-index all Qdrant collections!
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+# e5 models require a task prefix: "passage: " for document content at index time
+USE_E5_PREFIX = "e5" in MODEL_NAME.lower()
 
 
 def is_pdf_relevant(url: str) -> bool:
@@ -128,7 +134,9 @@ def main():
             content = record.get("content", "")
             if content and len(content.strip()) > 20:
                 try:
-                    embedding = model.encode(content).tolist()
+                    # e5 models need a "passage: " prefix for document content at index time
+                    text_to_embed = f"passage: {content}" if USE_E5_PREFIX else content
+                    embedding = model.encode(text_to_embed).tolist()
                     record["embedding"] = embedding
                 except:
                     pass

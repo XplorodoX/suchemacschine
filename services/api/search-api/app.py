@@ -40,6 +40,16 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_FALLBACK_MODELS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1"]
 RELEVANCE_MIN_SCORE = 0.34
 
+# Cross-Encoder model for re-ranking.
+# mmarco-mMiniLMv2 is multilingual and handles German well.
+# Override via env: CROSS_ENCODER_MODEL=none to disable.
+CROSS_ENCODER_MODEL = os.getenv(
+    "CROSS_ENCODER_MODEL",
+    "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+)
+# How many candidates to feed into the cross-encoder (latency vs. quality trade-off)
+CROSS_ENCODER_TOP_K = int(os.getenv("CROSS_ENCODER_TOP_K", 20))
+
 GERMAN_STOPWORDS = {
     "der", "die", "das", "ein", "eine", "einer", "einem", "einen", "und", "oder", "aber", "mit", "ohne",
     "auf", "in", "im", "am", "an", "zu", "zum", "zur", "von", "für", "ist", "sind", "war", "wie", "was",
@@ -72,6 +82,20 @@ try:
 except Exception as e:
     print(f"⚠️  Warning: Could not connect to Qdrant: {e}")
     client = None
+
+# Load Cross-Encoder for re-ranking (no GPU required, runs on CPU)
+_cross_encoder = None
+if CROSS_ENCODER_MODEL.lower() != "none":
+    try:
+        from sentence_transformers.cross_encoder import CrossEncoder
+        print(f"Loading Cross-Encoder: {CROSS_ENCODER_MODEL} ...")
+        _cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
+        print(f"✓ Cross-Encoder loaded: {CROSS_ENCODER_MODEL}")
+    except ImportError:
+        print("⚠️  sentence-transformers not installed — Cross-Encoder disabled.")
+        print("   Install with: pip install sentence-transformers")
+    except Exception as e:
+        print(f"⚠️  Could not load Cross-Encoder '{CROSS_ENCODER_MODEL}': {e}")
 
 print("✓ Ready to use Ollama for embeddings and LLM")
 
@@ -390,6 +414,61 @@ def hybrid_search(query: str, expanded_query: str, total_limit: int = 20, semest
     return merged[:total_limit]
 
 
+def cross_encoder_rerank(query: str, results: list, top_k: int = CROSS_ENCODER_TOP_K) -> list:
+    """
+    Re-rank *results* using the globally loaded Cross-Encoder model.
+
+    The Cross-Encoder scores each (query, document) pair **jointly** — it reads
+    both texts together in a single forward pass, giving it far better ability
+    to judge relevance than two independent bi-encoder embeddings.
+
+    Only the top ``top_k`` candidates are re-scored to keep latency low
+    (typically <100 ms on CPU for top-20 with a MiniLM model).
+    The rest of the list is appended unchanged after the re-ranked candidates.
+
+    Args:
+        query:   the user's original search query
+        results: list of result dicts (must have a "text" and optionally "title" key)
+        top_k:   number of candidates to pass through the cross-encoder
+
+    Returns:
+        Re-ranked list (length unchanged).
+    """
+    if _cross_encoder is None or not results:
+        return results
+
+    candidates = results[:top_k]
+    rest = results[top_k:]
+
+    # Build (query, passage) input pairs for the cross-encoder.
+    # Prepend title when available to give the model more signal.
+    pairs = []
+    for r in candidates:
+        title = (r.get("title") or "").strip()
+        text = (r.get("text") or "")[:500]
+        passage = f"{title}: {text}" if title else text
+        pairs.append((query, passage))
+
+    try:
+        scores = _cross_encoder.predict(pairs)
+        for r, ce_score in zip(candidates, scores):
+            r["cross_encoder_score"] = float(ce_score)
+
+        reranked = sorted(
+            candidates,
+            key=lambda x: x.get("cross_encoder_score", 0.0),
+            reverse=True,
+        )
+        score_log.info(
+            "Cross-Encoder re-ranked top-%d candidates for query %r",
+            len(candidates), query,
+        )
+        return reranked + rest
+    except Exception as e:
+        logging.warning("Cross-encoder prediction failed: %s", e)
+        return results
+
+
 def boost_and_rank(
     query: str,
     results: list,
@@ -399,7 +478,12 @@ def boost_and_rank(
     openai_api_key: str = "",
     strict_match: bool = True,
 ) -> list:
-    """Combine vector score with lexical relevance and optional LLM re-ranking."""
+    """Combine vector score with lexical relevance and optional re-ranking.
+
+    Re-ranking priority:
+      1. Cross-Encoder  — always runs when available (no LLM required, fast)
+      2. LLM re-ranking — fallback when no Cross-Encoder is loaded and LLM is enabled
+    """
     if not results:
         return results
 
@@ -420,7 +504,7 @@ def boost_and_rank(
         res["lexical_score"] = float(lexical)
 
     if strict_match:
-        # Don't apply strict matching for timetable, website, and ASTA results (they have different data structure)
+        # Don't apply strict matching for timetable, website, and ASTA results
         results = [
             r
             for r in results
@@ -444,13 +528,18 @@ def boost_and_rank(
             r.get("url", "")[:80],
         )
 
-    # 2. LLM Re-ranking (Only if requested)
+    # 2. Cross-Encoder re-ranking — runs whenever the model is loaded (no LLM needed)
+    if _cross_encoder is not None:
+        results = cross_encoder_rerank(query, results)
+        return results
+
+    # 3. LLM Re-ranking — only when no Cross-Encoder is available and LLM is enabled
     if not include_rerank:
         return results
 
     top_n = 10
     subset = results[:top_n]
-    
+
     snippets = ""
     for i, res in enumerate(subset):
         snippet = res.get("text", "")[:200].replace("\n", " ").strip()
@@ -484,7 +573,7 @@ def boost_and_rank(
             reranked = [subset[i] for i in new_order]
             remaining_subset = [r for i, r in enumerate(subset) if i not in new_order]
             return reranked + remaining_subset + results[top_n:]
-            
+
         return results
     except Exception:
         return results
@@ -925,6 +1014,11 @@ async def get_status():
             "current_stage": current_stage,
             "stage_details": stage_details,
             "collections": collection_status,
+            "reranker": {
+                "model": CROSS_ENCODER_MODEL if _cross_encoder is not None else None,
+                "enabled": _cross_encoder is not None,
+                "top_k": CROSS_ENCODER_TOP_K,
+            },
             "message": "Datenbank wird gerade indexiert... Bitte haben Sie Geduld!" if is_indexing else "Bereit zur Suche"
         }
     except Exception as e:

@@ -53,6 +53,16 @@ class SearchPipeline:
         )
         self.sparse_model = self.config.get("sparse_model") if use_sparse else None
 
+        # ColBERT Late Interaction (optional)
+        use_colbert = (
+            self.config.get("colbert_vectors", False)
+            or os.getenv("USE_COLBERT_VECTORS", "false").lower() == "true"
+        )
+        self.colbert_model = self.config.get("colbert_model") if use_colbert else None
+        self.colbert_dim = int(
+            os.getenv("COLBERT_DIM", self.config.get("colbert_dim", 128))
+        )
+
         qdrant_cfg = self.config.get("qdrant", {})
         self.qdrant_host = os.getenv("QDRANT_HOST", qdrant_cfg.get("host", "localhost"))
         self.qdrant_port = int(os.getenv("QDRANT_PORT", qdrant_cfg.get("port", 6333)))
@@ -82,10 +92,15 @@ class SearchPipeline:
                 return
 
         # Build chunker once (model loads once for all sources)
+        # parent_chunk_size activates Parent-Child (Small-to-Big) retrieval:
+        # embed small child chunks (chunk_size), return larger parent chunks in results.
+        default_parent_chunk_size = self.config.get("parent_chunk_size") or sources[0].get("parent_chunk_size")
         chunker = ContextualChunker(
             model_name=self.embedding_model,
             chunk_size=int(sources[0].get("chunk_size", self.config.get("chunk_size", 800))),
             chunk_overlap=int(sources[0].get("chunk_overlap", self.config.get("chunk_overlap", 120))),
+            parent_chunk_size=int(default_parent_chunk_size) if default_parent_chunk_size else None,
+            colbert_model_name=self.colbert_model,
             sparse_model_name=self.sparse_model,
         )
 
@@ -98,15 +113,18 @@ class SearchPipeline:
             log.info("=" * 60)
             log.info("Processing source: %s → collection: %s", source_name, collection)
 
-            # Use source-specific chunk size if provided
+            # Use source-specific chunk settings if provided
             src_chunk_size = source.get("chunk_size")
             src_chunk_overlap = source.get("chunk_overlap")
-            if src_chunk_size or src_chunk_overlap:
+            src_parent_chunk_size = source.get("parent_chunk_size", self.config.get("parent_chunk_size"))
+            if src_chunk_size or src_chunk_overlap or src_parent_chunk_size:
                 # Rebuild chunker with source-specific settings
                 source_chunker = ContextualChunker(
                     model_name=self.embedding_model,
                     chunk_size=int(src_chunk_size or 800),
                     chunk_overlap=int(src_chunk_overlap or 120),
+                    parent_chunk_size=int(src_parent_chunk_size) if src_parent_chunk_size else None,
+                    colbert_model_name=self.colbert_model,
                     sparse_model_name=self.sparse_model,
                 )
             else:
@@ -138,6 +156,7 @@ class SearchPipeline:
                 indexer = QdrantIndexer(
                     collection=collection,
                     vector_size=self.vector_size,
+                    colbert_dim=self.colbert_dim,
                     host=self.qdrant_host,
                     port=self.qdrant_port,
                 )

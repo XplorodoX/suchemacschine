@@ -13,9 +13,12 @@ Handles:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +33,86 @@ from .ranking import (
 )
 
 log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# TTL Cache
+# ---------------------------------------------------------------------------
+
+class _QueryTTLCache:
+    """
+    Thread-safe in-memory cache with per-entry TTL and a maximum size cap.
+
+    Entries older than *ttl_seconds* are treated as stale and evicted lazily
+    (on access) or eagerly when the cache exceeds *max_size* (oldest-first).
+    No external dependencies — pure Python.
+    """
+
+    def __init__(self, ttl_seconds: float = 300.0, max_size: int = 512):
+        self.ttl = ttl_seconds
+        self.max_size = max_size
+        # {key: (stored_at, value)}
+        self._store: dict[str, tuple[float, Any]] = {}
+        self._lock = threading.Lock()
+        self._hits = 0
+        self._misses = 0
+
+    # ------------------------------------------------------------------
+
+    def _make_key(self, **params) -> str:
+        """Stable SHA-256 hash of the given keyword parameters."""
+        raw = "|".join(f"{k}={v}" for k, v in sorted(params.items()))
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    def get(self, key: str) -> tuple[bool, Any]:
+        """Return (hit, value). Stale entries are removed on read."""
+        with self._lock:
+            entry = self._store.get(key)
+            if entry is None:
+                self._misses += 1
+                return False, None
+            stored_at, value = entry
+            if time.monotonic() - stored_at > self.ttl:
+                del self._store[key]
+                self._misses += 1
+                return False, None
+            self._hits += 1
+            return True, value
+
+    def set(self, key: str, value: Any) -> None:
+        """Store *value* under *key*, evicting oldest entries if over capacity."""
+        with self._lock:
+            if len(self._store) >= self.max_size:
+                # Evict the oldest quarter of entries
+                sorted_keys = sorted(self._store, key=lambda k: self._store[k][0])
+                for old_key in sorted_keys[: max(1, self.max_size // 4)]:
+                    del self._store[old_key]
+            self._store[key] = (time.monotonic(), value)
+
+    def clear(self) -> int:
+        """Remove all entries. Returns number of entries cleared."""
+        with self._lock:
+            n = len(self._store)
+            self._store.clear()
+            self._hits = 0
+            self._misses = 0
+            return n
+
+    def info(self) -> dict:
+        """Return cache statistics."""
+        with self._lock:
+            now = time.monotonic()
+            valid = sum(1 for _, (ts, _) in self._store.items() if now - ts <= self.ttl)
+            total = self._hits + self._misses
+            return {
+                "size": len(self._store),
+                "valid_entries": valid,
+                "ttl_seconds": self.ttl,
+                "max_size": self.max_size,
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": round(self._hits / total, 3) if total else 0.0,
+            }
 
 
 class SearchEngine:
@@ -108,6 +191,26 @@ class SearchEngine:
             except Exception as e:
                 log.warning("Sparse encoder not available: %s", e)
 
+        # ColBERT Late Interaction encoder (optional)
+        # Uses token-level MaxSim scoring in Qdrant for better rare-term retrieval.
+        use_colbert = (
+            self.config.get("colbert_vectors", False)
+            or os.getenv("USE_COLBERT_VECTORS", "false").lower() == "true"
+        )
+        self._colbert_encoder = None
+        if use_colbert:
+            colbert_model_name = self.config.get(
+                "colbert_model", "jinaai/jina-colbert-v2"
+            )
+            try:
+                from fastembed import LateInteractionTextEmbedding
+                self._colbert_encoder = LateInteractionTextEmbedding(model_name=colbert_model_name)
+                log.info("✓ ColBERT encoder loaded: %s", colbert_model_name)
+            except ImportError:
+                log.warning("fastembed not installed — ColBERT disabled. pip install 'fastembed>=0.3'")
+            except Exception as e:
+                log.warning("ColBERT encoder not available: %s", e)
+
         # Qdrant client
         from qdrant_client import QdrantClient
         from qdrant_client.models import Prefetch, FusionQuery, Fusion, SparseVector, NamedSparseVector
@@ -117,6 +220,20 @@ class SearchEngine:
         self._Fusion = Fusion
         self._SparseVector = SparseVector
         self._NamedSparseVector = NamedSparseVector
+
+        # Query result cache
+        cache_cfg = search_cfg.get("cache", {})
+        cache_ttl = float(
+            os.getenv("SEARCH_CACHE_TTL", cache_cfg.get("ttl_seconds", 300))
+        )
+        cache_max = int(
+            os.getenv("SEARCH_CACHE_MAX_SIZE", cache_cfg.get("max_size", 512))
+        )
+        self._cache = _QueryTTLCache(ttl_seconds=cache_ttl, max_size=cache_max)
+        log.info(
+            "✓ Query cache enabled (ttl=%ds, max_size=%d)",
+            int(cache_ttl), cache_max,
+        )
 
         log.info("SearchEngine ready for project '%s' (%d sources)", self.project_name, len(self.sources))
 
@@ -139,30 +256,59 @@ class SearchEngine:
             log.debug("Sparse encoding failed: %s", e)
             return None
 
+    def _colbert_query_vector(self, text: str) -> list[list[float]] | None:
+        """
+        Encode *text* into ColBERT query token vectors.
+
+        Returns a list of token vectors (shape: n_tokens × colbert_dim) suitable
+        for Qdrant MultiVector MaxSim scoring, or None if ColBERT is not loaded.
+        """
+        if self._colbert_encoder is None:
+            return None
+        try:
+            result = next(self._colbert_encoder.query_embed([text]))
+            return result.tolist()
+        except Exception as e:
+            log.debug("ColBERT query encoding failed: %s", e)
+            return None
+
     # ------------------------------------------------------------------
     # Collection search
     # ------------------------------------------------------------------
 
     def _query_collection(self, collection: str, dense_vec: list[float], query: str, limit: int) -> list:
         sparse_vec = self._sparse_vector(query)
-        if sparse_vec is not None:
+        colbert_vec = self._colbert_query_vector(query)
+
+        # Build Prefetch arms: always Dense, + Sparse and/or ColBERT if available
+        has_prefetch = sparse_vec is not None or colbert_vec is not None
+        if has_prefetch:
+            prefetch = [self._Prefetch(query=dense_vec, using="dense", limit=limit * 2)]
+            if sparse_vec is not None:
+                prefetch.append(
+                    self._Prefetch(
+                        query=self._NamedSparseVector(name="sparse", vector=sparse_vec),
+                        using="sparse",
+                        limit=limit * 2,
+                    )
+                )
+            if colbert_vec is not None:
+                # ColBERT query: list[list[float]] (one vector per query token)
+                # Qdrant uses MaxSim comparator configured at collection creation time.
+                prefetch.append(
+                    self._Prefetch(query=colbert_vec, using="colbert", limit=limit * 2)
+                )
             try:
                 return self._qdrant.query_points(
                     collection_name=collection,
-                    prefetch=[
-                        self._Prefetch(query=dense_vec, using="dense", limit=limit * 2),
-                        self._Prefetch(
-                            query=self._NamedSparseVector(name="sparse", vector=sparse_vec),
-                            using="sparse",
-                            limit=limit * 2,
-                        ),
-                    ],
+                    prefetch=prefetch,
                     query=self._FusionQuery(fusion=self._Fusion.RRF),
                     limit=limit,
                 ).points
             except Exception:
                 pass  # fall through to dense-only
 
+        # Dense-only fallback
         return self._qdrant.query_points(
             collection_name=collection,
             query=dense_vec,
@@ -174,11 +320,16 @@ class SearchEngine:
     # ------------------------------------------------------------------
 
     def _hybrid_search(self, query: str, expanded_query: str, total_limit: int = 50, **kwargs) -> list[dict]:
-        """Search all configured collections and merge results."""
+        """Search all configured collections and merge results.
+
+        Scores from each collection are independently normalized to [0, 1]
+        (min-max) before merging so that larger collections with higher
+        absolute RRF/BM25 scores don't unfairly dominate the final ranking.
+        """
         orig_vec = self._encode(query)
         exp_vec = self._encode(expanded_query)
 
-        all_points = []
+        all_results: list[dict] = []
         total_weight = sum(s.get("search_weight", 0) for s in self.sources)
 
         for source in self.sources:
@@ -206,16 +357,35 @@ class SearchEngine:
                             seen[key] = p
                     points = list(seen.values())
 
-                # Convert to result dicts
+                # --- Normalize scores of this collection to [0, 1] ---
+                # This prevents large collections (higher absolute RRF/BM25
+                # scores) from drowning out smaller ones in the merged list.
+                raw_scores = [p.score for p in points]
+                if raw_scores:
+                    col_min = min(raw_scores)
+                    col_max = max(raw_scores)
+                    col_denom = (col_max - col_min) if col_max > col_min else 1.0
+                else:
+                    col_min, col_denom = 0.0, 1.0
+
+                # Convert to result dicts with normalized scores
+                collection_results: list[dict] = []
                 for p in points:
                     result = self._format_point(p, result_type, source)
-                    all_points.append(result)
+                    # Store original (raw) score and replace with normalized one
+                    result["raw_score"] = result["score"]
+                    result["score"] = (p.score - col_min) / col_denom
+                    collection_results.append(result)
 
-                log.debug("  %s → %d results (weight=%.0f%%)", collection, len(points), weight * 100)
+                all_results.extend(collection_results)
+                log.debug(
+                    "  %s → %d results (weight=%.0f%%, score range [%.4f, %.4f])",
+                    collection, len(points), weight * 100, col_min, col_min + col_denom,
+                )
             except Exception as e:
                 log.warning("Collection '%s' unavailable: %s", collection, e)
 
-        return sorted(all_points, key=lambda x: x["score"], reverse=True)[:total_limit]
+        return sorted(all_results, key=lambda x: x["score"], reverse=True)[:total_limit]
 
     def _format_point(self, point, result_type: str, source: dict) -> dict:
         payload = point.payload or {}
@@ -228,9 +398,12 @@ class SearchEngine:
         elif result_type in ("website", "asta"):
             text = f"{payload.get('title', '')}: {payload.get('content', '')[:200]}"
         else:
-            text = payload.get("text", "")
+            # Parent-Child retrieval: return the larger parent chunk when available.
+            # The child chunk (payload["text"]) was used for retrieval precision;
+            # parent_text carries enough surrounding context to be useful to the user.
+            text = payload.get("parent_text") or payload.get("text", "")
 
-        return {
+        result = {
             "score": float(point.score),
             "url": payload.get("url"),
             "text": text,
@@ -244,6 +417,11 @@ class SearchEngine:
             "pdf_sources": payload.get("pdf_sources", []),
             "metadata": payload.get("metadata", {}),
         }
+        # Expose child text for debugging/logging (None when not in parent-child mode)
+        child_text = payload.get("text") if payload.get("parent_text") else None
+        if child_text:
+            result["child_text"] = child_text
+        return result
 
     # ------------------------------------------------------------------
     # LLM helpers
@@ -371,6 +549,10 @@ class SearchEngine:
         """
         Execute a search query.
 
+        Results are cached by a TTL cache keyed on all parameters that affect
+        the output (query, flags, limits, provider, model).  Cache hits skip
+        embedding, Qdrant retrieval, ranking, and any LLM calls entirely.
+
         Returns:
             (ranked_results, summary, expanded_query)
         """
@@ -388,10 +570,29 @@ class SearchEngine:
             active_key = ""
 
         # Fuzzy correction: fix typos before any expansion
+        # (done before cache lookup so the canonical corrected form is cached)
         corrected_query, was_corrected = fuzzy_correct_query(query, self._fuzzy_vocabulary)
         if was_corrected:
             log.info("Fuzzy correction applied: %r → %r", query, corrected_query)
             query = corrected_query
+
+        # --- Cache lookup ---
+        cache_key = self._cache._make_key(
+            query=query.lower().strip(),
+            total_limit=total_limit,
+            include_expansion=include_expansion,
+            include_rerank=include_rerank,
+            include_summary=include_summary,
+            strict_match=strict_match,
+            provider=resolved_provider,
+            model=active_model,
+        )
+        hit, cached = self._cache.get(cache_key)
+        if hit:
+            log.debug("Cache HIT for query %r", query)
+            return cached
+
+        # --- Cache miss: run full pipeline ---
 
         # Query expansion
         expanded_query = query
@@ -422,4 +623,21 @@ class SearchEngine:
         if include_summary and llm_enabled and ranked:
             summary = self._generate_summary(query, ranked, resolved_provider, active_model, active_key)
 
-        return ranked, summary, expanded_query
+        result = (ranked, summary, expanded_query)
+        self._cache.set(cache_key, result)
+        log.debug("Cache MISS — stored result for query %r", query)
+        return result
+
+    # ------------------------------------------------------------------
+    # Cache management
+    # ------------------------------------------------------------------
+
+    def cache_info(self) -> dict:
+        """Return cache statistics (hits, misses, hit_rate, size, …)."""
+        return self._cache.info()
+
+    def cache_clear(self) -> int:
+        """Invalidate all cached results. Returns number of entries removed."""
+        n = self._cache.clear()
+        log.info("Cache cleared — %d entries removed", n)
+        return n
