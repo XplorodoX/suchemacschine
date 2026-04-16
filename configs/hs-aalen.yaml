@@ -1,0 +1,131 @@
+# ============================================================
+# HS Aalen — Suchmaschinen-Konfiguration
+# Alle drei bestehenden Quellen: Hauptwebsite, ASTA, Stundenplan
+# ============================================================
+
+name: "hs-aalen"
+language: "de"
+description: "Suchmaschine für die Hochschule Aalen"
+
+# ------------------------------------------------------------------
+# Embedding-Modell (gilt für alle Quellen dieser Config)
+# WICHTIG: Wenn du das Modell änderst, musst du neu indexieren!
+# ------------------------------------------------------------------
+embedding_model: "intfloat/multilingual-e5-base"
+vector_size: 768
+
+# Optionale Sparse-Vektoren (BM42/SPLADE) — deaktiviert per Default.
+# Aktivieren mit: USE_SPARSE_VECTORS=true oder sparse_vectors: true
+sparse_vectors: false
+sparse_model: "Qdrant/bm42-all-minilm-l6-v2-attentions"
+
+# ------------------------------------------------------------------
+# Qdrant Verbindung
+# ------------------------------------------------------------------
+qdrant:
+  host: "localhost"
+  port: 6333
+
+# ------------------------------------------------------------------
+# LLM-Integration (Query Expansion, Reranking, Summary)
+# ------------------------------------------------------------------
+llm:
+  ollama_url: "http://localhost:11434/api/generate"
+  ollama_model: "deepseek-r1:8b"
+  openai_model: "gpt-4o-mini"
+
+# ------------------------------------------------------------------
+# Datenquellen — jede Quelle landet in ihrer eigenen Collection
+# ------------------------------------------------------------------
+sources:
+  # 1. HS Aalen Hauptwebsite — größte Collection (Hauptinhalt)
+  - name: "hs_aalen_main"
+    type: website
+    url: "https://www.hs-aalen.de"
+    max_depth: 3
+    respect_robots_txt: true
+    js_rendering: false       # auf true setzen wenn viel JS-Content
+    collection: "hs_aalen_search"
+    result_type: "webpage"
+    search_weight: 0.50       # 50% der Suchergebnisse aus dieser Collection
+    chunk_size: 800
+    chunk_overlap: 120
+
+  # 2. ASTA (Verfasste Studierendenschaft HS Aalen)
+  - name: "asta"
+    type: website
+    url: "https://www.vs-hs-aalen.de"
+    max_depth: 2
+    respect_robots_txt: true
+    js_rendering: false
+    collection: "asta_content"
+    result_type: "asta"
+    search_weight: 0.10
+    chunk_size: 800
+    chunk_overlap: 100
+
+  # 3. Starplan Stundenplan (iCal API der HTW Aalen)
+  - name: "stundenplan"
+    type: starplan
+    base_url: "https://vorlesungen.htw-aalen.de/splan"
+    planning_unit_id: 50
+    collection: "starplan_timetable"
+    result_type: "timetable"
+    search_weight: 0.15
+
+  # 4. Zusätzliche einzelne Seiten (optional — per Liste)
+  # - name: "spezialseiten"
+  #   type: urls
+  #   list:
+  #     - "https://www.hs-aalen.de/spezialseite-1"
+  #     - "https://www.hs-aalen.de/spezialseite-2"
+  #   collection: "hs_aalen_search"
+  #   result_type: "webpage"
+  #   search_weight: 0.0   # 0 = nur indexieren, nicht als eigene Gewichtung
+
+  # 5. Lokale Dateien (PDFs, Markdown, Textdateien)
+  # - name: "spo_dokumente"
+  #   type: folder
+  #   path: "/home/flo/dokumente/spo"
+  #   extensions: [".pdf", ".txt", ".md"]
+  #   collection: "hs_aalen_docs"
+  #   result_type: "document"
+  #   search_weight: 0.25
+
+# ------------------------------------------------------------------
+# Suchparameter
+# ------------------------------------------------------------------
+search:
+  relevance_min_score: 0.34
+  cross_encoder_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+
+  # Studiengangskürzel-Synonyme (ohne LLM, rein regelbasiert)
+  program_synonyms:
+    informatik: ["in", "ai", "csc", "computer science", "kuenstliche intelligenz", "ki"]
+    "computer science": ["informatik", "in", "csc", "ai", "ki"]
+    ki: ["kuenstliche intelligenz", "ai", "informatik", "in"]
+    "kuenstliche intelligenz": ["ki", "ai", "informatik", "in"]
+    ai: ["ki", "kuenstliche intelligenz", "informatik", "in", "csc"]
+    csc: ["informatik", "in", "computer science", "ai", "ki"]
+    elektrotechnik: ["et", "e technik", "etechnik", "electronics"]
+    "e technik": ["et", "elektrotechnik", "etechnik"]
+    et: ["elektrotechnik", "e technik", "etechnik"]
+    maschinenbau: ["mb", "mechanical engineering"]
+    mb: ["maschinenbau", "mechanical engineering"]
+    wirtschaftsinformatik: ["winf", "business informatics"]
+    winf: ["wirtschaftsinformatik", "business informatics"]
+    "data science": ["ds"]
+    ds: ["data science"]
+
+  module_synonyms:
+    "theoretische informatik": ["tib", "theo", "thi"]
+    "theoretische info": ["tib", "theo", "thi"]
+    theo: ["theoretische informatik", "tib"]
+    mathematik: ["mathe", "ma"]
+    "mathematik 1": ["mathe 1", "ma1", "ma 1"]
+    "mathematik 2": ["mathe 2", "ma2", "ma 2"]
+    "software engineering": ["se"]
+    "software engineering 1": ["se1", "se 1"]
+    "software engineering 2": ["se2", "se 2"]
+    "mensch computer interaktion": ["mci"]
+    "mensch-computer-interaktion": ["mci"]
