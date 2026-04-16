@@ -6,17 +6,20 @@ This runs after the main scraper to add PDF documents to relevant pages.
 
 import json
 import sys
+from pathlib import Path
 import requests
 from typing import Dict, List
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 # Add scripts to path
-sys.path.insert(0, '/Users/merluee/Desktop/suchemacschine/scripts')
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from pdf_extractor import extract_pdfs_from_page
 
-INPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data.jsonl"
-OUTPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data_with_pdfs.jsonl"
+INPUT_FILE = PROJECT_ROOT / "data.jsonl"
+OUTPUT_FILE = PROJECT_ROOT / "data_with_pdfs.jsonl"
 
 PDF_KEYWORDS = [
     "curriculum", "studienplan", "modul", "syllabus", "course", "program",

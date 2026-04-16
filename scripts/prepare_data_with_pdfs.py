@@ -9,18 +9,21 @@ Comprehensive PDF integration:
 
 import json
 import sys
+from pathlib import Path
 import requests
 from collections import defaultdict
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-sys.path.insert(0, '/Users/merluee/Desktop/suchemacschine/scripts')
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from pdf_extractor import extract_pdfs_from_page
 from sentence_transformers import SentenceTransformer
 
-INPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data.jsonl"
-OUTPUT_FILE = "/Users/merluee/Desktop/suchemacschine/processed_data.jsonl"
+INPUT_FILE = PROJECT_ROOT / "data.jsonl"
+OUTPUT_FILE = PROJECT_ROOT / "processed_data.jsonl"
 
 # URL patterns for PDF-relevant pages
 PDF_RELEVANT_KEYWORDS = [

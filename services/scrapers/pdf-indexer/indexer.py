@@ -14,17 +14,62 @@ import pdfplumber
 PDF_SOURCES = os.getenv("PDF_SOURCES", "/pdf_sources")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/data")
 
+def _table_to_markdown(table: list) -> str:
+    """Convert a pdfplumber table (list of rows) to a Markdown table string."""
+    rows = [[str(cell).strip() if cell is not None else "" for cell in row] for row in table]
+    if not rows:
+        return ""
+    header = rows[0]
+    sep = ["---"] * len(header)
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join(sep) + " |",
+    ]
+    for row in rows[1:]:
+        padded = row + [""] * (len(header) - len(row))
+        lines.append("| " + " | ".join(padded) + " |")
+    return "\n".join(lines)
+
+
 def extract_pdf_text(pdf_path: str) -> str:
-    """Extract text from PDF."""
+    """Extract text and tables from PDF. Tables are converted to Markdown."""
     try:
-        text_parts = []
+        page_parts = []
         with pdfplumber.open(pdf_path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                text = page.extract_text()
-                if text:
-                    text_parts.append(f"[Page {page_num}] {text}")
-        
-        return "\n".join(text_parts)
+                parts = []
+
+                # Detect tables and their bounding boxes
+                tables = page.extract_tables()
+                table_bboxes = [tbl.bbox for tbl in page.find_tables()] if tables else []
+
+                # Plain text — filter out table regions to avoid duplication
+                text_page = page
+                for bbox in table_bboxes:
+                    try:
+                        text_page = text_page.filter(
+                            lambda obj, b=bbox: not (
+                                b[0] <= obj.get("x0", 0) <= b[2]
+                                and b[1] <= obj.get("top", 0) <= b[3]
+                            )
+                        )
+                    except Exception:
+                        pass
+
+                plain = text_page.extract_text()
+                if plain and plain.strip():
+                    parts.append(plain.strip())
+
+                # Markdown tables
+                for tbl in tables:
+                    md = _table_to_markdown(tbl)
+                    if md:
+                        parts.append(md)
+
+                if parts:
+                    page_parts.append(f"[Page {page_num}]\n" + "\n\n".join(parts))
+
+        return "\n\n---\n\n".join(page_parts)
     except Exception as e:
         print(f"   ⚠️  Error extracting {pdf_path}: {e}")
         return ""

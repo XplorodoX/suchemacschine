@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -22,8 +23,9 @@ SITEMAPS = [
 ]
 ROOT_SITEMAP_INDEX = "https://www.hs-aalen.de/sitemap.xml"
 
-OUTPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data.jsonl"
-REPORT_FILE = "/Users/merluee/Desktop/suchemacschine/scrape_report.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+OUTPUT_FILE = PROJECT_ROOT / "data.jsonl"
+REPORT_FILE = PROJECT_ROOT / "reports" / "scrape_report.json"
 MIN_CONTENT_LENGTH = 350
 NOISE_PATTERNS = [
     r"AI Suche",

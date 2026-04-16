@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import tqdm
 from qdrant_client import QdrantClient
@@ -12,7 +13,8 @@ from qdrant_client.http.models import (
 )
 
 # Configuration
-INPUT_FILE = "/Users/merluee/Desktop/suchemacschine/processed_data.jsonl"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+INPUT_FILE = PROJECT_ROOT / "processed_data.jsonl"
 COLLECTION_NAME = "hs_aalen_search"
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))

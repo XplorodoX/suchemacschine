@@ -3,7 +3,10 @@
 
 import json
 import sys
-sys.path.insert(0, '/Users/merluee/Desktop/suchemacschine/scripts')
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from scraper import create_session, extract_content, BrowserRenderer
 

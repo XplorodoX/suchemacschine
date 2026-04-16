@@ -1,10 +1,12 @@
 import json
 import re
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import urlparse
 
-INPUT_FILE = "/Users/merluee/Desktop/suchemacschine/data.jsonl"
-OUTPUT_REPORT = "/Users/merluee/Desktop/suchemacschine/content_quality_report.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+INPUT_FILE = PROJECT_ROOT / "data.jsonl"
+OUTPUT_REPORT = PROJECT_ROOT / "reports" / "content_quality_report.json"
 
 MIN_CONTENT_LENGTH = 350
 MIN_SECTIONS = 1

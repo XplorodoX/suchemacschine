@@ -420,6 +420,24 @@ class FolderLoader:
         self.recursive = config.get("recursive", True)
         self.result_type = config.get("result_type", "document")
 
+    @staticmethod
+    def _table_to_markdown(table: list[list]) -> str:
+        """Convert a pdfplumber table (list of rows) to a Markdown table string."""
+        rows = [[str(cell).strip() if cell is not None else "" for cell in row] for row in table]
+        if not rows:
+            return ""
+        header = rows[0]
+        sep = ["---"] * len(header)
+        lines = [
+            "| " + " | ".join(header) + " |",
+            "| " + " | ".join(sep) + " |",
+        ]
+        for row in rows[1:]:
+            # Pad short rows to header width
+            padded = row + [""] * (len(header) - len(row))
+            lines.append("| " + " | ".join(padded) + " |")
+        return "\n".join(lines)
+
     def _extract(self, file: Path) -> str | None:
         ext = file.suffix.lower()
         try:
@@ -427,10 +445,43 @@ class FolderLoader:
                 return file.read_text(encoding="utf-8", errors="ignore")
             if ext == ".pdf":
                 import pdfplumber
+                page_parts: list[str] = []
                 with pdfplumber.open(file) as pdf:
-                    return "\n\n".join(
-                        p.extract_text() or "" for p in pdf.pages
-                    ).strip() or None
+                    for page in pdf.pages:
+                        # Extract tables first; replace their bounding boxes so
+                        # extract_text() doesn't double-extract their content.
+                        tables = page.extract_tables()
+                        table_bboxes = [tbl.bbox for tbl in page.find_tables()] if tables else []
+
+                        parts: list[str] = []
+
+                        # Plain text — crop away table regions to avoid duplication
+                        text_page = page
+                        for bbox in table_bboxes:
+                            try:
+                                text_page = text_page.filter(
+                                    lambda obj, b=bbox: not (
+                                        b[0] <= obj.get("x0", 0) <= b[2]
+                                        and b[1] <= obj.get("top", 0) <= b[3]
+                                    )
+                                )
+                            except Exception:
+                                pass  # filter may fail on some objects; ignore
+
+                        plain = text_page.extract_text()
+                        if plain and plain.strip():
+                            parts.append(plain.strip())
+
+                        # Markdown tables
+                        for tbl in tables:
+                            md = self._table_to_markdown(tbl)
+                            if md:
+                                parts.append(md)
+
+                        if parts:
+                            page_parts.append("\n\n".join(parts))
+
+                return "\n\n---\n\n".join(page_parts) or None
             if ext == ".docx":
                 import docx
                 doc = docx.Document(file)
