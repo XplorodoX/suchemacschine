@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, SparseVectorParams, SparseIndexParams
@@ -8,11 +9,11 @@ client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 COLLECTION_NAME = "hs_aalen_hybrid"
 
-print(f"📦 Creating/Updating collection '{COLLECTION_NAME}'...")
+print(f"Creating/Updating collection '{COLLECTION_NAME}'...")
 
 try:
     client.delete_collection(COLLECTION_NAME)
-    print(f"🗑️ Existing collection '{COLLECTION_NAME}' deleted.")
+    print(f"Existing collection '{COLLECTION_NAME}' deleted.")
 except:
     pass
 
@@ -30,4 +31,4 @@ client.create_collection(
     }
 )
 
-print(f"✅ Collection '{COLLECTION_NAME}' created with Dense + Sparse support.")
+print(f"Collection '{COLLECTION_NAME}' created with Dense + Sparse support.")
