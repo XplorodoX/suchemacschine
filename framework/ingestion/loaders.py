@@ -65,57 +65,166 @@ def _get(url: str, timeout: int = 15, headers: dict | None = None) -> str | None
     return None
 
 
+# Tags that are pure UI chrome / never carry page-specific content.
+_BOILERPLATE_TAGS = (
+    "nav", "footer", "script", "style", "noscript", "aside",
+    "iframe", "template", "svg", "button",
+)
+
+# ARIA roles that mark non-content regions (navigation, search box, page banner, …).
+_BOILERPLATE_ROLES = {
+    "navigation", "search", "banner", "contentinfo",
+    "complementary", "menu", "menubar", "tablist", "dialog",
+}
+
+# class/id substrings that almost always indicate UI chrome rather than content.
+# Matched as whole tokens (split by space, '_' or '-') to avoid e.g. removing
+# "research" because it contains "search".
+_BOILERPLATE_TOKEN_RE = re.compile(
+    r"(?:^|[\s_-])("
+    r"nav|navbar|navigation|menu|submenu|"
+    r"search|searchbar|searchform|searchbox|"
+    r"breadcrumb|breadcrumbs|"
+    r"cookie|cookies|consent|gdpr|"
+    r"sidebar|widget|skiplink|skip-link|"
+    r"social|share|sharing|"
+    r"login|signin|signup|register|newsletter|subscribe|"
+    r"toolbar|topbar|site-header|page-header|site-footer|page-footer|"
+    r"language-switch|lang-switch|locale-switch|"
+    r"pagination|pager"
+    r")(?:[\s_-]|$)",
+    re.IGNORECASE,
+)
+
+# Heading regex reused throughout.
+_HEADING_RE = re.compile(r"^h[1-6]$")
+
+
+def _strip_boilerplate(soup) -> None:
+    """Remove navigation, search, footers, headers and similar UI chrome in place."""
+    # Tag-name based removal.
+    for tag in soup.find_all(_BOILERPLATE_TAGS):
+        tag.decompose()
+
+    # Search forms — keep other forms (could legitimately contain text).
+    for form in soup.find_all("form"):
+        role = (form.get("role") or "").lower()
+        cls = " ".join(form.get("class") or [])
+        ident = form.get("id") or ""
+        name = form.get("name") or ""
+        haystack = f"{cls} {ident} {name}".lower()
+        if role == "search" or "search" in haystack:
+            form.decompose()
+
+    # ARIA roles that mark non-content regions.
+    for tag in list(soup.find_all(attrs={"role": True})):
+        role = (tag.get("role") or "").lower()
+        if role in _BOILERPLATE_ROLES:
+            tag.decompose()
+
+    # Class / id token matching for common UI chrome patterns.
+    for tag in list(soup.find_all(True)):
+        if not tag.parent:  # already removed via an ancestor
+            continue
+        cls = tag.get("class")
+        cls_str = " ".join(cls) if isinstance(cls, list) else (cls or "")
+        ident = tag.get("id") or ""
+        if cls_str and _BOILERPLATE_TOKEN_RE.search(cls_str):
+            tag.decompose()
+            continue
+        if ident and _BOILERPLATE_TOKEN_RE.search(ident):
+            tag.decompose()
+
+    # Top-level <header> elements are page banners; <header> nested deep
+    # inside an article is usually a section header and should be kept.
+    for header in list(soup.find_all("header")):
+        if not header.parent:
+            continue
+        if header.find_parent(["article", "section", "main"]) is None:
+            header.decompose()
+
+
+def _normalize_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _collect_text_between_headings(root) -> list[dict]:
+    """
+    Walk every text node under `root` and group it into sections, using
+    h1–h6 elements as boundaries. Captures text from any tag (paragraphs,
+    list items, table cells, divs, …) — not only <p>.
+    """
+    try:
+        from bs4 import NavigableString
+    except ImportError:
+        raise ImportError("Install beautifulsoup4: pip install beautifulsoup4 lxml")
+
+    sections: list[dict] = []
+    current_heading = "Allgemein"
+    current_parts: list[str] = []
+
+    def flush() -> None:
+        block = _normalize_whitespace(" ".join(current_parts))
+        if block and len(block) >= 20:
+            sections.append({"heading": current_heading, "text": block})
+
+    for node in root.descendants:
+        name = getattr(node, "name", None)
+        if name and _HEADING_RE.match(name):
+            flush()
+            current_heading = _normalize_whitespace(node.get_text(" ")) or "Allgemein"
+            current_parts = []
+            continue
+
+        if isinstance(node, NavigableString):
+            # Skip text nodes that live inside a heading — captured separately.
+            if any(
+                getattr(p, "name", None) and _HEADING_RE.match(p.name)
+                for p in node.parents
+            ):
+                continue
+            text = str(node).strip()
+            if text:
+                current_parts.append(text)
+
+    flush()
+    return sections
+
+
 def _parse_html_sections(soup) -> tuple[str, str, str, list[dict]]:
     """
     Extract (title, h1, content, sections) from a BeautifulSoup object.
-    Sections are built from <section> tags or heading hierarchy.
+
+    `content` and `sections` capture text from every content-bearing tag
+    (paragraphs, lists, tables, definition lists, divs, …). Boilerplate
+    such as navigation, search forms, footers and cookie banners is
+    stripped first so it never reaches the index.
     """
-    # Remove boilerplate elements
-    for tag in soup.find_all(["nav", "footer", "script", "style", "noscript", "aside"]):
-        tag.decompose()
+    _strip_boilerplate(soup)
 
     title = (soup.find("title") or soup.new_tag("x")).get_text(strip=True)
     h1_tag = soup.find("h1")
     h1 = h1_tag.get_text(strip=True) if h1_tag else ""
 
-    sections = []
-
-    # Strategy 1: explicit <section> tags
+    # Strategy 1: explicit <section> tags carry their own boundaries.
+    sections: list[dict] = []
     section_tags = soup.find_all("section")
     if section_tags:
         for sec in section_tags:
-            heading_tag = sec.find(re.compile(r"^h[1-6]$"))
+            heading_tag = sec.find(_HEADING_RE)
             heading = heading_tag.get_text(strip=True) if heading_tag else "Allgemein"
-            text = sec.get_text(separator=" ", strip=True)
-            if text and len(text) > 30:
+            text = _normalize_whitespace(sec.get_text(" "))
+            if text and len(text) >= 20:
                 sections.append({"heading": heading, "text": text})
 
-    # Strategy 2: heading hierarchy in main content
+    # Strategy 2: walk all text nodes under <main>/<article>/<body>, using
+    # headings as section boundaries.
     if not sections:
         main = soup.find("main") or soup.find("article") or soup.find("body")
-        if main:
-            current_heading = "Allgemein"
-            current_text_parts: list[str] = []
-            for child in main.descendants:
-                if not hasattr(child, "name"):
-                    continue
-                if re.match(r"^h[1-6]$", child.name or ""):
-                    # Save previous block
-                    block = " ".join(current_text_parts).strip()
-                    if block and len(block) > 30:
-                        sections.append({"heading": current_heading, "text": block})
-                    current_heading = child.get_text(strip=True)
-                    current_text_parts = []
-                elif child.name == "p":
-                    txt = child.get_text(separator=" ", strip=True)
-                    if txt:
-                        current_text_parts.append(txt)
-            # Flush last block
-            block = " ".join(current_text_parts).strip()
-            if block and len(block) > 30:
-                sections.append({"heading": current_heading, "text": block})
+        if main is not None:
+            sections = _collect_text_between_headings(main)
 
-    content = soup.get_text(separator=" ", strip=True)
+    content = _normalize_whitespace(soup.get_text(" "))
     return title, h1, content, sections
 
 
