@@ -3,7 +3,7 @@ FROM docker.io/library/node:20-slim AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY package.json ./
 
 # Install dependencies
 RUN npm install
