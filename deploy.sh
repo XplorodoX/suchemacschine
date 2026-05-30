@@ -4,6 +4,16 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Podman: unqualified-search-registries setzen damit lokale Images gefunden werden
+REGISTRIES_CONF="${HOME}/.config/containers/registries.conf"
+if [ ! -f "$REGISTRIES_CONF" ]; then
+    mkdir -p "$(dirname "$REGISTRIES_CONF")"
+    cat > "$REGISTRIES_CONF" << 'EOF'
+unqualified-search-registries = ["docker.io"]
+EOF
+    echo "==> registries.conf erstellt ($REGISTRIES_CONF)"
+fi
+
 echo "==> Stoppe laufende Container..."
 podman-compose down 2>/dev/null || true
 
@@ -16,8 +26,11 @@ for name in campusnow-mongo campusnow-scraper campusnow-api campusnow-g2-seeder 
     fi
 done
 
-echo "==> Baue und starte alle Services..."
-podman-compose up -d --build
+echo "==> Baue Images..."
+podman-compose build
+
+echo "==> Starte alle Services..."
+podman-compose up -d
 
 echo ""
 echo "==> Status:"

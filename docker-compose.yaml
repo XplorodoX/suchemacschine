@@ -14,7 +14,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: localhost/suchemacschine-backend:latest
     container_name: search-api-service${STACK_SUFFIX:-}
     ports:
       - "${BACKEND_BIND_IP:-0.0.0.0}:${BACKEND_HOST_PORT:-6055}:8000"
@@ -35,7 +34,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: localhost/suchemacschine-frontend:latest
     container_name: search-frontend-service${STACK_SUFFIX:-}
     ports:
       - "${FRONTEND_BIND_IP:-0.0.0.0}:${FRONTEND_HOST_PORT:-6056}:3000"
@@ -47,7 +45,6 @@ services:
     build:
       context: ./scrapers
       dockerfile: Dockerfile
-    image: localhost/suchemacschine-scrapers:latest
     container_name: search-scrapers-service${STACK_SUFFIX:-}
     volumes:
       - ./data:/app/data
