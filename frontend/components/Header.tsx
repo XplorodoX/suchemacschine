@@ -11,9 +11,9 @@ export default function Header({ onHome }: HeaderProps) {
         onClick={onHome}
         className="text-2xl font-bold tracking-tighter cursor-pointer select-none"
       >
-        <span className="text-[#8ab4f8]">HS</span>
-        <span className="text-[#f28b82]">.</span>
-        <span className="text-[#81c995]">Aalen</span>
+        <span className="text-[#8ab4f8]">Studi</span>
+        <span className="text-[#f28b82]">·</span>
+        <span className="text-[#81c995]">Suche</span>
       </div>
     </header>
   );

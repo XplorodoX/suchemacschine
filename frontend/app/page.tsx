@@ -195,9 +195,9 @@ function SearchContent() {
           className="mb-10 text-center select-none animate-in fade-in zoom-in duration-500 cursor-pointer active:scale-95 transition-transform"
         >
           <h1 className="text-6xl font-bold tracking-tighter sm:text-7xl">
-            <span className="text-[#8ab4f8]">HS</span>
-            <span className="text-[#f28b82]">.</span>
-            <span className="text-[#81c995]">Aalen</span>
+            <span className="text-[#8ab4f8]">Studi</span>
+            <span className="text-[#f28b82]">·</span>
+            <span className="text-[#81c995]">Suche</span>
           </h1>
         </div>
 
@@ -225,7 +225,7 @@ function SearchContent() {
         )}
 
         <div className="mt-12 text-[var(--text-secondary)] text-sm max-w-2xl text-center leading-relaxed opacity-70">
-          Durchsuche offizielle Webseiten, PDFs, Prüfungsordnungen und Vorlesungspläne der Hochschule Aalen.
+          Durchsuche Webseiten, PDFs, Prüfungsordnungen und Vorlesungspläne rund ums Studium in Aalen.
         </div>
       </main>
     );
@@ -239,9 +239,9 @@ function SearchContent() {
             onClick={() => setIsLanding(true)}
             className="text-2xl font-bold tracking-tighter cursor-pointer select-none shrink-0 active:scale-95 transition-transform"
           >
-            <span className="text-[#8ab4f8]">HS</span>
-            <span className="text-[#f28b82]">.</span>
-            <span className="text-[#81c995]">Aalen</span>
+            <span className="text-[#8ab4f8]">Studi</span>
+            <span className="text-[#f28b82]">·</span>
+            <span className="text-[#81c995]">Suche</span>
           </div>
           <div className="flex-1 max-w-[692px]">
             <SearchBox onSearch={handleSearch} initialValue={query} history={history} recommendations={recommendations} />
@@ -361,8 +361,8 @@ function SearchContent() {
            <div className="space-y-4 max-w-md">
               <h4 className="text-[var(--text)] font-semibold uppercase tracking-wider text-xs">Über diesen Dienst</h4>
               <p className="leading-relaxed opacity-80">
-                Diese Suchmaschine ist ein Vektorsuche-Tool für Studierende der Hochschule Aalen. 
-                Sie indexiert offizielle Webseiten, PDFs und Prüfungsordnungen.
+                StudiSuche ist ein inoffizielles Studentenprojekt und steht in keiner Verbindung zur Hochschule Aalen.
+                Es indexiert öffentlich zugängliche Webseiten, PDFs und Prüfungsordnungen.
               </p>
            </div>
            <div className="grid grid-cols-2 gap-x-12 gap-y-2">
@@ -374,7 +374,7 @@ function SearchContent() {
            </div>
         </div>
         <div className="mt-8 pt-8 border-t border-[var(--border)] flex flex-col items-center gap-2 text-[var(--text-secondary)] text-[0.7rem] opacity-60 uppercase tracking-[0.2em]">
-           <div>HS Aalen Search v2.0 • Powered by Next.js & FastAPI</div>
+           <div>StudiSuche Aalen v2.0 • Inoffizielles Studentenprojekt • Powered by Next.js & FastAPI</div>
         </div>
       </footer>
     </div>
