@@ -56,8 +56,11 @@ export EMBEDDING_MODEL=intfloat/multilingual-e5-base   # already set in docker-c
 python scrapers/prepare_hs_aalen_extended_data.py && python scrapers/index_hs_aalen_to_qdrant.py
 python scrapers/prepare_asta_data.py               && python scrapers/index_asta_to_qdrant.py
 python scrapers/prepare_starplan_semesters_data.py && python scrapers/index_starplan_semesters_to_qdrant.py
-# hs_aalen_search / hs_aalen_pdfs via the backend pipeline:
-python backend/index_to_qdrant.py
+# hs_aalen_search: prepare_data.py FIRST — it rewrites processed_data.jsonl with
+# fresh 768-dim embeddings. index_to_qdrant.py only reads those embeddings, so
+# skipping prepare would try to upsert stale 384-dim vectors and fail.
+python backend/prepare_data.py && python backend/index_to_qdrant.py
+# hs_aalen_pdfs (init_pdf_index.py computes its own embeddings):
 python backend/init_pdf_index.py
 ```
 

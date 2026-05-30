@@ -77,8 +77,13 @@ echo "==> Schritt 2/3: Restliche Collections..."
 # Semester-Collections (z. B. starplan_SoSe26 — die nutzt die Live-Suche!)
 run_scraper prepare_starplan_semesters_data.py
 run_scraper index_starplan_semesters_to_qdrant.py
-# hs_aalen_search + hs_aalen_pdfs (liegen unter backend/)
+# hs_aalen_search: zuerst Embeddings mit dem neuen Modell neu berechnen.
+# index_to_qdrant.py liest nur die fertigen Embeddings aus processed_data.jsonl —
+# stammen die noch vom alten Modell (384-dim), schlägt der Upsert in die neue
+# 768-dim-Collection fehl. prepare_data.py schreibt processed_data.jsonl neu.
+run_backend prepare_data.py
 run_backend index_to_qdrant.py
+# hs_aalen_pdfs (init_pdf_index.py berechnet seine Embeddings selbst neu)
 run_backend init_pdf_index.py
 
 echo ""
