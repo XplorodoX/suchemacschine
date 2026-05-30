@@ -8,15 +8,10 @@ import json
 import logging
 from pathlib import Path
 
-from sentence_transformers import SentenceTransformer
+from hybrid_utils import encode_passage
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Load embedding model
-logger.info("Loading SentenceTransformer model...")
-model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-logger.info(f"Model loaded: {model.get_sentence_embedding_dimension()} dimensions")
 
 
 def prepare_semester_data(semester_code: str, input_file: str):
@@ -48,7 +43,7 @@ def prepare_semester_data(semester_code: str, input_file: str):
             continue
         
         # Generate embedding
-        embedding = model.encode(text, convert_to_tensor=False).tolist()
+        embedding = encode_passage(text)
         
         # Create record
         record = {

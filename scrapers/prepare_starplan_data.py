@@ -8,7 +8,7 @@ Converts starplan_data.json to indexed records with embeddings
 import json
 import logging
 
-from sentence_transformers import SentenceTransformer
+from hybrid_utils import encode_passages
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -61,17 +61,14 @@ def prepare_starplan_data():
 def generate_embeddings(records):
     """Generate sentence embeddings for all records"""
     
-    logger.info("\nLoading SentenceTransformer model (this may take a moment)...")
-    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    
     logger.info("Generating embeddings...")
-    
+
     texts = [record['full_text'] for record in records]
-    embeddings = model.encode(texts, show_progress_bar=True)
-    
+    embeddings = encode_passages(texts)
+
     # Attach embeddings to records
     for i, record in enumerate(records):
-        record['embedding'] = embeddings[i].tolist()
+        record['embedding'] = embeddings[i]
     
     logger.info(f"Generated embeddings for {len(records)} records")
     

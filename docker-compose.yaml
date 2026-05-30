@@ -23,7 +23,7 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - EMBEDDING_MODEL=paraphrase-multilingual-MiniLM-L12-v2
+      - EMBEDDING_MODEL=intfloat/multilingual-e5-base
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -52,6 +52,8 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      # Must match the backend so documents and queries share an embedding space.
+      - EMBEDDING_MODEL=intfloat/multilingual-e5-base
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: ["parallel"]

@@ -8,6 +8,7 @@ Comprehensive PDF integration:
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 import requests
@@ -30,7 +31,9 @@ PDF_RELEVANT_KEYWORDS = [
     "modul", "kurs", "course",  "dokument", "information"
 ]
 
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+# e5 models need a "passage: " prefix on indexed documents.
+USE_E5_PREFIX = "e5" in MODEL_NAME.lower()
 
 
 def is_pdf_relevant(url: str) -> bool:
@@ -127,7 +130,8 @@ def main():
             content = record.get("content", "")
             if content and len(content.strip()) > 20:
                 try:
-                    embedding = model.encode(content).tolist()
+                    payload = f"passage: {content}" if USE_E5_PREFIX else content
+                    embedding = model.encode(payload).tolist()
                     record["embedding"] = embedding
                 except:
                     pass

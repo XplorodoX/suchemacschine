@@ -10,8 +10,7 @@ import os
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVectorParams
-from sentence_transformers import SentenceTransformer
-from hybrid_utils import sparse_encode
+from hybrid_utils import sparse_encode, dense_vector_size
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -22,7 +21,7 @@ QDRANT_PORT = int(os.getenv('QDRANT_PORT', 6333))
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 COLLECTION_NAME = "hs_aalen_website"
-VECTOR_SIZE = 384
+VECTOR_SIZE = dense_vector_size()
 
 # Check if collection exists
 try:

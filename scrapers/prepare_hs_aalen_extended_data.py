@@ -8,7 +8,7 @@ import json
 import logging
 import re
 
-from sentence_transformers import SentenceTransformer
+from hybrid_utils import encode_passage
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -44,10 +44,6 @@ def _snippet_for_pdf_filename(pdf_section_text: str, filename: str) -> str:
     snippet = re.sub(r"\s+", " ", match.group(1)).strip()
     return snippet[:1200]
 
-# Laden des Modells
-logger.info("📦 Loading SentenceTransformer model...")
-model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-
 import os
 DATA_DIR = os.getenv("DATA_DIR", "/app/data")
 INPUT_FILE = os.path.join(DATA_DIR, "hs_aalen_extended_data.jsonl")
@@ -70,7 +66,7 @@ try:
             full_text = f"{title} {content} {pdf_section_text}".strip()
             
             # Generiere Embedding
-            embedding = model.encode(full_text).tolist()
+            embedding = encode_passage(full_text)
             
             # Erstelle Record
             record = {
@@ -106,7 +102,7 @@ try:
                     'title': pdf_title,
                     'content': pdf_snippet,
                     'full_text': pdf_text,
-                    'embedding': model.encode(pdf_text).tolist(),
+                    'embedding': encode_passage(pdf_text),
                     'source': 'hs_aalen_pdfs',
                     'type': 'pdf',
                     'parent_url': page.get('url'),
