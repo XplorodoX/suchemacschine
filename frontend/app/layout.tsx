@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CampusIndex | HS Aalen AI-Suche",
-  description: "KI-gestützte Suchmaschine für Vorlesungen, PDFs und offizielle Informationen der Hochschule Aalen.",
+  title: "StudiSuche Aalen",
+  description: "Inoffizielle Suchmaschine für Studierende in Aalen. Durchsuche Webseiten, PDFs, Prüfungsordnungen und Vorlesungspläne.",
 };
 
 export default function RootLayout({
