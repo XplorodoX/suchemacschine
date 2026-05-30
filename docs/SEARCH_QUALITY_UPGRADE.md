@@ -39,6 +39,16 @@ read from there, so switching models is a single change.
 Because the vector dimension changes (384 → 768), all collections must be rebuilt
 with the new model. Queries and documents must use the **same** model.
 
+The easiest path is the helper script, which builds the images, rebuilds every
+collection and restarts the backend, then verifies the dimensions:
+
+```bash
+./reindex.sh            # full run
+./reindex.sh --no-build # skip image rebuild if already current
+```
+
+To do it by hand instead:
+
 ```bash
 export EMBEDDING_MODEL=intfloat/multilingual-e5-base   # already set in docker-compose
 
