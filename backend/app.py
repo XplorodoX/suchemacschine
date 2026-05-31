@@ -149,7 +149,8 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.2,
             "starplan_timetable": 2.0,
             "asta_content": 0.1,
-            "hs_aalen_pdfs": 0.1,   # NEU
+            "hs_aalen_pdfs": 0.1,
+            "usta_content": 0.1,
         }
     if query_type == "asta":
         return {
@@ -157,15 +158,17 @@ def _get_collection_weights(query_type: str) -> dict[str, float]:
             "hs_aalen_website": 0.3,
             "starplan_timetable": 0.1,
             "asta_content": 2.0,
-            "hs_aalen_pdfs": 0.3,   # NEU
+            "hs_aalen_pdfs": 0.3,
+            "usta_content": 1.5,
         }
     # General query — balanced
     return {
         "hs_aalen_search": 1.0,
         "hs_aalen_website": 0.7,
         "starplan_timetable": 0.3,
-        "asta_content": 0.6,        # War 0.4, erhöht für ASTA-Nischeninhalte
-        "hs_aalen_pdfs": 0.8,       # NEU – PDFs werden jetzt durchsucht
+        "asta_content": 0.6,
+        "hs_aalen_pdfs": 0.8,
+        "usta_content": 0.6,
     }
 # Common university term synonyms for query expansion
 PROGRAM_SYNONYMS = {
@@ -240,7 +243,8 @@ def hybrid_search(
         "hs_aalen_website": weights.get("hs_aalen_website", 0.7),
         timetable_collection: weights.get("starplan_timetable", 0.3),
         "asta_content": weights.get("asta_content", 0.4),
-        "hs_aalen_pdfs": weights.get("hs_aalen_pdfs", 0.8),   # NEU
+        "hs_aalen_pdfs": weights.get("hs_aalen_pdfs", 0.8),
+        "usta_content": weights.get("usta_content", 0.6),
     }
 
     per_collection_limit = max(10, total_limit)

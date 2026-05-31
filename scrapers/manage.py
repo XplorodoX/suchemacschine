@@ -21,7 +21,7 @@ def run_task_group(task_list):
 
 def main():
     parser = argparse.ArgumentParser(description="Manage Scraping and Indexing Tasks")
-    parser.add_argument("task", choices=["asta", "starplan", "webpage", "all", "parallel", "list", "hybrid"], help="Task to run")
+    parser.add_argument("task", choices=["asta", "starplan", "webpage", "usta", "all", "parallel", "list", "hybrid"], help="Task to run")
     
     args = parser.parse_args()
     
@@ -41,27 +41,32 @@ def main():
             ("prepare_hs_aalen_extended_data.py", "HS Aalen Data Preparation"),
             ("index_hs_aalen_to_qdrant.py", "HS Aalen Indexing")
         ],
+        "usta": [
+            ("usta_scraper.py", "USTA Aalen Scraping"),
+            ("prepare_usta_data.py", "USTA Data Preparation"),
+            ("index_usta_to_qdrant.py", "USTA Indexing")
+        ],
         "hybrid": [
             ("hybrid_indexer.py", "Unified Hybrid Indexing")
         ]
     }
     
     if args.task == "list":
-        print("Available tasks: asta, starplan, webpage, all, parallel, hybrid")
+        print("Available tasks: asta, starplan, webpage, usta, all, parallel, hybrid")
         return
 
     if args.task == "parallel":
         processes = []
-        for t in ["asta", "starplan", "webpage"]:
+        for t in ["asta", "starplan", "webpage", "usta"]:
             p = Process(target=run_task_group, args=(tasks[t],))
             p.start()
             processes.append(p)
-        
+
         for p in processes:
             p.join()
-            
+
     elif args.task == "all":
-        run_task_group(tasks["asta"] + tasks["starplan"] + tasks["webpage"] + tasks["hybrid"])
+        run_task_group(tasks["asta"] + tasks["starplan"] + tasks["webpage"] + tasks["usta"] + tasks["hybrid"])
         
     elif args.task == "hybrid":
         run_task_group(tasks["hybrid"])

@@ -48,7 +48,7 @@ run_backend() {
 
 if [ "$DO_BUILD" -eq 1 ]; then
     echo "==> Baue Images (backend + scrapers) mit e5-Modell neu..."
-    $COMPOSE build backend scrapers
+    $COMPOSE --profile scrapers build backend scrapers
 fi
 
 echo "==> Stelle sicher, dass Qdrant läuft..."

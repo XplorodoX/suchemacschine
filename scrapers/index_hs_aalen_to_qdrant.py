@@ -45,18 +45,20 @@ client.create_collection(
 logger.info("✓ Hybrid collection created (dense + BM25 sparse)")
 
 # Load and index data
-logger.info("📂 Loading hs_aalen_indexed_data.jsonl...")
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+INPUT_FILE = os.path.join(DATA_DIR, "hs_aalen_indexed_data.jsonl")
+
+logger.info(f"📂 Loading {INPUT_FILE}...")
 points = []
 
-with open('hs_aalen_indexed_data.jsonl', 'r', encoding='utf-8') as f:
+with open(INPUT_FILE, 'r', encoding='utf-8') as f:
     for i, line in enumerate(f, 1):
         record = json.loads(line)
         
-        # Build text for sparse encoding
         title = record.get('title', '')
-        content = record.get('content', '')[:2000]
+        content = record.get('content', '')
         full_text = f"{title} {content}"
-        
+
         point = PointStruct(
             id=i,
             vector={
@@ -73,6 +75,8 @@ with open('hs_aalen_indexed_data.jsonl', 'r', encoding='utf-8') as f:
                 'pdf_count': record.get('pdf_count', 0),
                 'sections': record.get('sections', []),
                 'parent_url': record.get('parent_url'),
+                'chunk_index': record.get('chunk_index', 0),
+                'chunk_total': record.get('chunk_total', 1),
             }
         )
         points.append(point)
