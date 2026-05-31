@@ -12,7 +12,7 @@ from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVect
 
 # Add scrapers dir to path for hybrid_utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scrapers'))
-from hybrid_utils import sparse_encode
+from hybrid_utils import sparse_encode, dense_vector_size
 
 INPUT_FILE = os.getenv("INPUT_FILE", "/app/data/processed_data.jsonl")
 # Also check local paths
@@ -40,7 +40,7 @@ def main():
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config={
-            "dense": VectorParams(size=384, distance=Distance.COSINE),
+            "dense": VectorParams(size=dense_vector_size(), distance=Distance.COSINE),
         },
         sparse_vectors_config={
             "sparse": SparseVectorParams(),

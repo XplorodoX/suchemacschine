@@ -17,7 +17,16 @@ import sqlite3
 
 # --- Configuration ---
 COLLECTION_NAME = "hs_aalen_hybrid"
-MODEL_NAME = os.getenv("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
+# Dense embedding model. multilingual-e5-base (768-dim) gives noticeably better
+# German retrieval than the old MiniLM (384-dim). NOTE: e5 models require a task
+# prefix ("query: " for queries, "passage: " for documents) and the collections
+# must be re-indexed with the *same* model/dimension.
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+USE_E5_PREFIX = "e5" in MODEL_NAME.lower()
+# Cross-Encoder used to re-rank the top candidates jointly (query, document).
+CROSS_ENCODER_MODEL = os.getenv("CROSS_ENCODER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
+# How many top candidates to feed into the (relatively expensive) cross-encoder.
+RERANK_POOL = int(os.getenv("RERANK_POOL", 30))
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 
@@ -63,7 +72,7 @@ class FeedbackRequest(BaseModel):
 print("Loading models...")
 try:
     model = SentenceTransformer(MODEL_NAME)
-    print("✓ Dense embedding model loaded")
+    print(f"✓ Dense embedding model loaded ({MODEL_NAME})")
     sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
     print("✓ BM25 sparse model loaded")
     client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
@@ -71,6 +80,22 @@ try:
 except Exception as e:
     print(f"Warning: Initialization failed: {e}")
     model, sparse_model, client = None, None, None
+
+# Cross-Encoder for re-ranking. Loaded separately so a failure here doesn't take
+# down the whole API — search still works without it, just with weaker ordering.
+cross_encoder = None
+try:
+    from sentence_transformers.cross_encoder import CrossEncoder
+    cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
+    print(f"✓ Cross-Encoder loaded ({CROSS_ENCODER_MODEL})")
+except Exception as e:
+    print(f"Warning: Cross-Encoder unavailable, ranking will skip rerank step: {e}")
+
+
+def encode_query(text: str) -> list:
+    """Encode a search query into a dense vector, applying the e5 task prefix."""
+    payload = f"query: {text}" if USE_E5_PREFIX else text
+    return model.encode(payload).tolist()
 
 
 def sparse_encode(text: str) -> SparseVector:
@@ -225,8 +250,8 @@ def hybrid_search(
     RRF_K = 60  # Standard RRF constant
 
     for variant in variants:
-        # Encode this variant
-        dense_vector = model.encode(variant).tolist()
+        # Encode this variant (e5 query prefix applied inside encode_query)
+        dense_vector = encode_query(variant)
         sparse_vector = sparse_encode(variant)
 
         for collection_name, weight in collections_to_search.items():
@@ -564,45 +589,110 @@ def get_navboost_stats(q: str) -> dict:
         return {}
 
 
+def cross_encoder_rerank(query: str, results: list, pool: int = RERANK_POOL) -> list:
+    """
+    Re-rank the top `pool` candidates with a cross-encoder that scores the
+    (query, document) pair jointly. This is the single biggest quality lever:
+    the bi-encoder retrieval only gives a rough ordering, while the cross-encoder
+    reads query and document together.
+
+    The cross-encoder score is squashed to [0, 1] and blended 50/50 with the
+    existing pipeline score, so retrieval signal, lexical match and boosts still
+    carry weight (and ties are broken sensibly).
+    """
+    if cross_encoder is None or not results:
+        return results
+
+    candidates = results[:pool]
+    rest = results[pool:]
+    pairs = [(query, f"{r.get('title', '')} {r.get('text', '')[:500]}") for r in candidates]
+
+    try:
+        ce_scores = cross_encoder.predict(pairs)
+    except Exception as e:
+        print(f"Cross-encoder rerank failed, keeping retrieval order: {e}")
+        return results
+
+    for r, raw in zip(candidates, ce_scores):
+        ce_norm = 1.0 / (1.0 + math.exp(-float(raw)))  # sigmoid → [0, 1]
+        r["cross_encoder_score"] = ce_norm
+        r["score"] = 0.5 * r["score"] + 0.5 * ce_norm
+
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    return candidates + rest
+
+
 def boost_and_rank(q: str, results: list, intent_data: dict = None) -> list:
-    q_low = q.lower()
+    if not results:
+        return results
+
+    q_low = q.lower().strip()
     intent = (intent_data or {}).get("intent", "general")
     navboost_stats = get_navboost_stats(q_low)
-    
+
+    # --- Normalize retrieval (RRF) scores to [0, 1] ---
+    # The hybrid_search step produces RRF scores that live on a tiny scale
+    # (~0.01–0.1). Blending them raw with the lexical score (0–1) effectively
+    # discarded the semantic signal. Min-max normalisation puts both on the same
+    # [0, 1] scale so the fusion below is meaningful.
+    retrieval_scores = [r.get("score", 0.0) for r in results]
+    min_s, max_s = min(retrieval_scores), max(retrieval_scores)
+    denom = (max_s - min_s) or 1.0
+
     for r in results:
         title = (r.get("title") or "")
         url = (r.get("url") or "")
         text = r.get("text", "") + " " + title
         source = r.get("source", "")
         res_type = r.get("type", "")
-        
-        # Ngram-based lexical relevance (unigrams + bigrams + trigrams + phrase)
+
+        vector_norm = (r.get("score", 0.0) - min_s) / denom
         lex_score = lexical_relevance(q, text, url)
-        r["score"] = (0.35 * r["score"]) + (0.65 * lex_score)
-        
-        # --- NavBoost Dynamik ---
+
+        # Semantic-leaning fusion (was inverted: 35% vector / 65% lexical).
+        base = (0.70 * vector_norm) + (0.30 * lex_score)
+        r["vector_score"] = vector_norm
+        r["lexical_score"] = lex_score
+
+        # --- Boosts as bounded multipliers, so they nudge rather than dominate ---
+        boost = 1.0
+        url_norm = normalize_text(url)
+        if len(q_low) >= 4 and q_low in url_norm:
+            boost *= 1.4
+        elif any(len(t) >= 5 and t in url_norm for t in tokenize(q_low)):
+            boost *= 1.15
+
+        if intent == "timetable":
+            boost *= 1.5 if res_type == "timetable" else 0.85
+        elif intent == "person":
+            if source == "hs_aalen" and res_type == "webpage":
+                boost *= 1.3
+            if any(k in title.lower() for k in ("prof", "rector", "rektor")):
+                boost *= 1.3
+        elif intent == "document":
+            if res_type == "pdf":
+                boost *= 1.5
+            if any(k in title.lower() for k in ("satzung", "ordnung")):
+                boost *= 1.2
+
+        if source in ("hs_aalen", "asta"):
+            boost *= 1.1
+
+        score = base * boost
+
+        # --- NavBoost: small additive nudge on the same [0, 1] scale ---
         if url in navboost_stats:
             stats = navboost_stats[url]
-            boost = (stats["short"] * 0.1) + (stats["long"] * 0.5)
-            # Cap boost to prevent completely distorting other scores
-            r["score"] += min(boost, 2.0)
-            r["is_navboosted"] = True # For frontend hinting optionally
-        
-        # Intent-Based Dynamic Boosting
-        if intent == "timetable":
-            if res_type == "timetable": r["score"] += 1.2
-            else: r["score"] -= 0.3
-        elif intent == "person":
-            if source == "hs_aalen" and res_type == "webpage": r["score"] += 1.0
-            if "prof" in title.lower() or "rector" in title.lower() or "rektor" in title.lower(): r["score"] += 1.0
-        elif intent == "document":
-            if res_type == "pdf": r["score"] += 1.5
-            if any(k in title.lower() for k in ["satzung", "ordnung"]): r["score"] += 0.8
-        
-        # source/type defaults
-        if source in ["hs_aalen", "asta"]: r["score"] += 0.3
-            
-    return sorted(results, key=lambda x: x["score"], reverse=True)
+            nb = (stats["short"] * 0.02) + (stats["long"] * 0.08)
+            score += min(nb, 0.2)
+            r["is_navboosted"] = True
+
+        r["score"] = score
+
+    ranked = sorted(results, key=lambda x: x["score"], reverse=True)
+    # Cross-Encoder reranking on the top pool (no-op if the model failed to load)
+    ranked = cross_encoder_rerank(q, ranked)
+    return ranked
 
 
 @app.get("/api/search")

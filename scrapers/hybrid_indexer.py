@@ -10,8 +10,7 @@ import uuid
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVectorParams
-from sentence_transformers import SentenceTransformer
-from hybrid_utils import sparse_encode
+from hybrid_utils import sparse_encode, dense_vector_size, encode_passage
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ def setup_collection():
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config={
-            "dense": VectorParams(size=384, distance=Distance.COSINE)
+            "dense": VectorParams(size=dense_vector_size(), distance=Distance.COSINE)
         },
         sparse_vectors_config={
             "sparse": SparseVectorParams()
@@ -68,7 +67,8 @@ def index_file(filename, source_name, p_type="webpage"):
                 point = PointStruct(
                     id=point_id,
                     vector={
-                        "dense": record.get('embedding') or [0]*384,
+                        # None → filled in below with a freshly computed embedding
+                        "dense": record.get('embedding'),
                         "sparse": sparse_encode(full_text),
                     },
                     payload={
@@ -90,14 +90,12 @@ def index_file(filename, source_name, p_type="webpage"):
 
     if not points: return
 
-    # Generate dense embeddings for points that don't have them
-    model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    
+    # Generate dense embeddings for points that don't have them (uses the
+    # centralised model + passage prefix from hybrid_utils).
     logger.info(f"✨ Checking embeddings for {len(points)} points...")
-    zero_vec = [0]*384
     for p in points:
-        if p.vector["dense"] == zero_vec:
-            p.vector["dense"] = model.encode(p.payload['title'] + " " + p.payload['content'][:500]).tolist()
+        if not p.vector["dense"]:
+            p.vector["dense"] = encode_passage(p.payload['title'] + " " + p.payload['content'][:500])
 
     logger.info(f"🔄 Upserting {len(points)} points from {source_name}...")
     batch_size = 100

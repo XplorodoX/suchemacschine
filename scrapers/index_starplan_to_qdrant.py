@@ -14,7 +14,7 @@ from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVect
 
 # Add current dir to path for hybrid_utils
 sys.path.insert(0, os.path.dirname(__file__))
-from hybrid_utils import sparse_encode
+from hybrid_utils import sparse_encode, dense_vector_size
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class StarplanQdrantIndexer:
     def __init__(self):
         self.client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
         self.collection_name = 'starplan_timetable'
-        self.vector_size = 384
+        self.vector_size = dense_vector_size()
 
     def create_collection(self):
         """Create hybrid collection for timetable data (dense + BM25 sparse)"""

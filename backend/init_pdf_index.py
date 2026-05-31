@@ -7,11 +7,10 @@ import sys
 import logging
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVectorParams
-from sentence_transformers import SentenceTransformer
 
 # Add scrapers dir to path for hybrid_utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scrapers'))
-from hybrid_utils import sparse_encode
+from hybrid_utils import sparse_encode, dense_vector_size, encode_passage
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,11 +18,9 @@ logger = logging.getLogger(__name__)
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = "hs_aalen_pdfs"
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 
 def main():
     client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-    model = SentenceTransformer(MODEL_NAME)
 
     # Recreate collection
     try:
@@ -36,7 +33,7 @@ def main():
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config={
-            "dense": VectorParams(size=384, distance=Distance.COSINE),
+            "dense": VectorParams(size=dense_vector_size(), distance=Distance.COSINE),
         },
         sparse_vectors_config={
             "sparse": SparseVectorParams(),
@@ -70,7 +67,7 @@ def main():
 
     points = []
     for i, item in enumerate(seeds):
-        vector = model.encode(item["text"]).tolist()
+        vector = encode_passage(item["text"])
         full_text = f"{item['title']} {item['text']}"
         point = PointStruct(
             id=i + 5000, # Offset to avoid collisions

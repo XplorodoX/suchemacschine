@@ -16,7 +16,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "hs_aalen_hybrid"
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+USE_E5_PREFIX = "e5" in MODEL_NAME.lower()
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 
@@ -75,7 +76,7 @@ async def scrape_and_index():
                 # We need to create a unique ID based on URL
                 point_id = hashlib.md5(url.encode()).hexdigest()
                 
-                dense_vec = st_model.encode(content).tolist()
+                dense_vec = st_model.encode(f"passage: {content}" if USE_E5_PREFIX else content).tolist()
                 sparse_vec = sparse_encode(content)
                 
                 qc.upsert(

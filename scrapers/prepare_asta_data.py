@@ -7,14 +7,10 @@ Generiert SentenceTransformer Embeddings für ASTA Inhalte
 import json
 import logging
 
-from sentence_transformers import SentenceTransformer
+from hybrid_utils import encode_passage
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# Laden des Modells
-logger.info("📦 Loading SentenceTransformer model...")
-model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
 # Laden der ASTA Daten
 logger.info("📂 Loading asta_full_data.json...")
@@ -42,7 +38,7 @@ for i, page in enumerate(pages, 1):
     full_text = f"{page['title']} {page['content']}"
     
     # Generiere Embedding
-    embedding = model.encode(full_text).tolist()
+    embedding = encode_passage(full_text)
     
     # Erstelle Record
     record = {

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams, SparseVectorParams
-from hybrid_utils import sparse_encode
+from hybrid_utils import sparse_encode, dense_vector_size
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def create_collection(collection_name: str):
         client.create_collection(
             collection_name=collection_name,
             vectors_config={
-                "dense": VectorParams(size=384, distance=Distance.COSINE),
+                "dense": VectorParams(size=dense_vector_size(), distance=Distance.COSINE),
             },
             sparse_vectors_config={
                 "sparse": SparseVectorParams(),
